@@ -1,0 +1,31 @@
+{
+  "id": "nodebb-plugin-peipe-haa9-feed",
+  "name": "Peipe HAA9 Feed",
+  "description": "Peipe HAA9 mobile feed, composer, user topic cards, partner profiles, image gallery, essence tag shortcut, and study-group gated content.",
+  "url": "https://github.com/Hurt6465-ai/nodebb-plugin-peipe-haa9-feed",
+  "library": "./library.js",
+  "staticDirs": {
+    "public": "public"
+  },
+  "scss": [
+    "public/scss/style.scss"
+  ],
+  "scripts": [
+    "public/src/client.js"
+  ],
+  "languages": "languages",
+  "hooks": [
+    {
+      "hook": "static:app.load",
+      "method": "registerRoutes"
+    },
+    {
+      "hook": "filter:category.build",
+      "method": "filterCategoryBuild"
+    },
+    {
+      "hook": "filter:topics.get",
+      "method": "filterTopicsGet"
+    }
+  ]
+}
