@@ -1,0 +1,98 @@
+{
+  "countries": [
+    {
+      "code": "cn",
+      "value": "中国",
+      "label": "中国"
+    },
+    {
+      "code": "mm",
+      "value": "缅甸",
+      "label": "缅甸"
+    },
+    {
+      "code": "vn",
+      "value": "越南",
+      "label": "越南"
+    },
+    {
+      "code": "th",
+      "value": "泰国",
+      "label": "泰国"
+    },
+    {
+      "code": "gb",
+      "value": "英国",
+      "label": "英国"
+    },
+    {
+      "code": "us",
+      "value": "美国",
+      "label": "美国"
+    }
+  ],
+  "languages": [
+    {
+      "code": "zh",
+      "value": "中文",
+      "label": "中文"
+    },
+    {
+      "code": "my",
+      "value": "缅甸语",
+      "label": "缅甸语"
+    },
+    {
+      "code": "vi",
+      "value": "越南语",
+      "label": "越南语"
+    },
+    {
+      "code": "en",
+      "value": "英语",
+      "label": "英语"
+    },
+    {
+      "code": "th",
+      "value": "泰语",
+      "label": "泰语"
+    }
+  ],
+  "genders": [
+    {
+      "value": "男",
+      "label": "男"
+    },
+    {
+      "value": "女",
+      "label": "女"
+    }
+  ],
+  "relationships": [
+    {
+      "value": "保密",
+      "key": "option-relationship-private",
+      "emoji": "🔒"
+    },
+    {
+      "value": "单身",
+      "key": "option-relationship-single",
+      "emoji": "💛"
+    },
+    {
+      "value": "热恋",
+      "key": "option-relationship-love",
+      "emoji": "💞"
+    },
+    {
+      "value": "已婚",
+      "key": "option-relationship-married",
+      "emoji": "💍"
+    },
+    {
+      "value": "离异",
+      "key": "option-relationship-divorced",
+      "emoji": "🕊️"
+    }
+  ]
+}
