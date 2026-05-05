@@ -1,0 +1,1564 @@
+'use strict';
+
+const db = require.main.require('./src/database');
+const user = require.main.require('./src/user');
+const groups = require.main.require('./src/groups');
+const Messaging = require.main.require('./src/messaging');
+const topics = require.main.require('./src/topics');
+const posts = require.main.require('./src/posts');
+const fs = require('fs');
+const path = require('path');
+const options = require('./data/options.json');
+
+const CONFIG = {
+  profilePoolTtlMs: 30 * 60 * 1000,
+
+  // 用户在线状态最多保留 10 分钟
+  onlineTtlMs: 20 * 60 * 1000,
+
+  // onlineSet 只缓存 60 秒，避免旧在线状态被缓存太久
+  onlineCacheTtlMs: 60 * 1000,
+
+  onlineFallbackMs: 10 * 60 * 1000,
+  activeWindowMs: 24 * 60 * 60 * 1000,
+  seenTtlMs: 24 * 60 * 60 * 1000,
+  locationSyncMs: 24 * 60 * 60 * 1000,
+  locationTtlMs: 7 * 24 * 60 * 60 * 1000,
+  maxPoolScan: 10000,
+  maxLimit: 50,
+  defaultLimit: 20,
+  batchSize: 250,
+  chattedRetentionMs: 180 * 24 * 60 * 60 * 1000,
+  dailyGreetLimit: 8,
+  vipDailyGreetLimit: 30,
+  vipGroups: ['vip', 'VIP', 'Vip', 'premium', 'Premium', 'VIP会员', '会员']
+};
+
+const HAA9_STUDY_ACCESS = {
+  cid: 7,
+  groupName: '学习小组',
+  adminGroups: ['administrators', 'Global Moderators', '全局版主']
+};
+
+const USER_FIELDS = [
+  'uid', 'username', 'userslug', 'picture', 'status', 'lastonline', 'banned', 'deleted',
+  'aboutme', 'signature', 'countryCode', 'country_code', 'country', 'country_name',
+  'nationality', 'region', 'location', 'language_flag', 'language_fluent',
+  'native_language', 'language_learning', 'target_language', 'gender', 'sex', 'age',
+  'relationship_status',
+  'lat', 'lng', 'languagePartnerGeoUpdatedAt', 'languagePartnerGeoExpiresAt'
+];
+
+const PROFILE_FIELDS = ['language_flag', 'language_fluent', 'language_learning', 'gender', 'age', 'relationship_status'];
+
+const DEFAULT_RELATIONSHIPS = [
+  { value: '保密', key: 'option-relationship-private', emoji: '🔒' },
+  { value: '单身', key: 'option-relationship-single', emoji: '💛' },
+  { value: '热恋', key: 'option-relationship-love', emoji: '💞' },
+  { value: '已婚', key: 'option-relationship-married', emoji: '💍' },
+  { value: '离异', key: 'option-relationship-divorced', emoji: '🕊️' }
+];
+
+const DEFAULT_I18N = {
+  'zh-CN': {
+    'profile-relationship': '感情状况',
+    'option-relationship-private': '保密',
+    'option-relationship-single': '单身',
+    'option-relationship-love': '热恋',
+    'option-relationship-married': '已婚',
+    'option-relationship-divorced': '离异'
+  },
+  'en-GB': {
+    'profile-relationship': 'Relationship',
+    'option-relationship-private': 'Private',
+    'option-relationship-single': 'Single',
+    'option-relationship-love': 'In a relationship',
+    'option-relationship-married': 'Married',
+    'option-relationship-divorced': 'Divorced'
+  },
+  'my-MM': {
+    'profile-relationship': 'ဆက်ဆံရေး',
+    'option-relationship-private': 'မပြပါ',
+    'option-relationship-single': 'Single',
+    'option-relationship-love': 'ချစ်သူရှိ',
+    'option-relationship-married': 'အိမ်ထောင်ရှိ',
+    'option-relationship-divorced': 'ကွာရှင်းထား'
+  },
+  vi: {
+    'profile-relationship': 'Tình trạng',
+    'option-relationship-private': 'Riêng tư',
+    'option-relationship-single': 'Độc thân',
+    'option-relationship-love': 'Đang yêu',
+    'option-relationship-married': 'Đã kết hôn',
+    'option-relationship-divorced': 'Đã ly hôn'
+  }
+};
+
+function getRelationshipOptions() {
+  return Array.isArray(options.relationships) && options.relationships.length ? options.relationships : DEFAULT_RELATIONSHIPS;
+}
+
+function relationshipOption(value) {
+  const raw = cleanText(value || '保密') || '保密';
+  return getRelationshipOptions().find(item => item.value === raw) || getRelationshipOptions()[0];
+}
+
+const LANG_DIR = path.join(__dirname, 'languages');
+const langCache = new Map();
+
+function normalizeLocale(input) {
+  const raw = String(input || '').toLowerCase();
+  if (raw.startsWith('zh')) return 'zh-CN';
+  if (raw.startsWith('my') || raw.startsWith('mm') || raw.includes('burmese')) return 'my-MM';
+  if (raw.startsWith('vi')) return 'vi';
+  return 'en-GB';
+}
+
+function loadLanguage(locale) {
+  const normalized = normalizeLocale(locale);
+  if (langCache.has(normalized)) return langCache.get(normalized);
+
+  const file = path.join(LANG_DIR, normalized, 'peipe-partners.json');
+  let dict = {};
+
+  try {
+    dict = JSON.parse(fs.readFileSync(file, 'utf8'));
+  } catch (e) {
+    if (normalized !== 'en-GB') return loadLanguage('en-GB');
+  }
+
+  dict = Object.assign({}, DEFAULT_I18N[normalized] || DEFAULT_I18N['en-GB'] || {}, dict || {});
+
+  langCache.set(normalized, dict);
+  return dict;
+}
+
+const pluginLangCache = new Map();
+
+function loadPluginLanguage(locale) {
+  const normalized = normalizeLocale(locale);
+  if (pluginLangCache.has(normalized)) return pluginLangCache.get(normalized);
+
+  const file = path.join(LANG_DIR, normalized, 'peipe-haa9.json');
+  let dict = {};
+  try {
+    dict = JSON.parse(fs.readFileSync(file, 'utf8'));
+  } catch (e) {
+    if (normalized !== 'en-GB') return loadPluginLanguage('en-GB');
+  }
+  pluginLangCache.set(normalized, dict || {});
+  return dict || {};
+}
+
+async function getPluginI18n(req) {
+  const locale = await detectLocale(req);
+  const dict = loadPluginLanguage(locale);
+  return {
+    ok: true,
+    locale,
+    text: dict.client || {},
+    config: dict.config || {}
+  };
+}
+
+async function detectLocale(req) {
+  const direct = req && (
+    req.query && req.query.lang ||
+    req.user && (req.user.language || req.user.locale || req.user.userLang)
+  );
+
+  if (direct) return normalizeLocale(direct);
+
+  if (req && req.uid) {
+    try {
+      const fields = await user.getUserFields(req.uid, ['language', 'locale', 'userLang']);
+      const saved = fields && (fields.language || fields.locale || fields.userLang);
+      if (saved) return normalizeLocale(saved);
+    } catch (e) {}
+  }
+
+  const accept = req && req.headers && req.headers['accept-language'];
+  return normalizeLocale(accept);
+}
+
+function optionFlagEmoji(item, listKey) {
+  const rawCode = String(item && item.code || '').toLowerCase();
+
+  const languageFallback = {
+    cn: 'cn',
+    zh: 'cn',
+    mm: 'mm',
+    my: 'mm',
+    vi: 'vn',
+    vn: 'vn',
+    en: 'gb',
+    th: 'th',
+    jp: 'jp',
+    ja: 'jp',
+    kr: 'kr',
+    ko: 'kr'
+  };
+
+  const countryCode = listKey === 'languages' ? (languageFallback[rawCode] || rawCode) : rawCode;
+  return flagEmoji(countryCode);
+}
+
+function withEmojiLabel(label, emoji) {
+  const text = String(label || '');
+  if (!emoji) return text;
+  return text.indexOf(emoji) === 0 ? text : `${emoji} ${text}`;
+}
+
+function localizeOptions(baseOptions, dict) {
+  const cloneList = (list, listKey) => (list || []).map(item => {
+    const emoji = item.emoji || optionFlagEmoji(item, listKey);
+    const textLabel = dict[item.key] || item.label || item.value || item.key || '';
+
+    return Object.assign({}, item, {
+      flagEmoji: emoji,
+      textLabel,
+      label: withEmojiLabel(textLabel, emoji)
+    });
+  });
+
+  return {
+    countries: cloneList(baseOptions.countries, 'countries'),
+    languages: cloneList(baseOptions.languages, 'languages'),
+    genders: cloneList(baseOptions.genders, 'genders'),
+    relationships: cloneList(getRelationshipOptions(), 'relationships')
+  };
+}
+
+const COUNTRY_KEYWORDS = {
+  cn: ['cn', 'china', '中国', '中华人民共和国', 'zh-cn'],
+  tw: ['tw', 'taiwan', '台湾', 'zh-tw'],
+  hk: ['hk', 'hong kong', '香港'],
+  us: ['us', 'usa', 'united states', '美国'],
+  gb: ['gb', 'uk', 'united kingdom', 'great britain', 'england', '英国'],
+  mm: ['mm', 'myanmar', 'burma', '缅甸'],
+  vn: ['vn', 'vi', 'vietnam', '越南'],
+  th: ['th', 'thailand', '泰国'],
+  jp: ['jp', 'ja', 'japan', '日本'],
+  kr: ['kr', 'ko', 'korea', 'south korea', '韩国', '南韩'],
+  sg: ['sg', 'singapore', '新加坡'],
+  la: ['la', 'laos', '老挝'],
+  my: ['my', 'malaysia', '马来西亚'],
+  ph: ['ph', 'philippines', '菲律宾'],
+  id: ['id', 'indonesia', '印尼', '印度尼西亚'],
+  kh: ['kh', 'cambodia', '柬埔寨'],
+  in: ['in', 'india', '印度'],
+  fr: ['fr', 'france', '法国'],
+  de: ['de', 'germany', '德国'],
+  br: ['br', 'brazil', '巴西'],
+  ca: ['ca', 'canada', '加拿大'],
+  au: ['au', 'australia', '澳大利亚'],
+  ru: ['ru', 'russia', '俄罗斯']
+};
+
+const LANG_MAP = {
+  cn: 'CN',
+  zh: 'CN',
+  'zh-cn': 'CN',
+  china: 'CN',
+  chinese: 'CN',
+  '中文': 'CN',
+  '汉语': 'CN',
+
+  en: 'EN',
+  us: 'EN',
+  uk: 'EN',
+  gb: 'EN',
+  english: 'EN',
+  '英语': 'EN',
+
+  vi: 'VI',
+  vn: 'VI',
+  vietnam: 'VI',
+  vietnamese: 'VI',
+  '越南': 'VI',
+  '越南语': 'VI',
+
+  mm: 'MM',
+  my: 'MM',
+  myanmar: 'MM',
+  burmese: 'MM',
+  '缅甸': 'MM',
+  '缅甸语': 'MM',
+
+  th: 'TH',
+  thai: 'TH',
+  thailand: 'TH',
+  '泰语': 'TH',
+
+  jp: 'JP',
+  ja: 'JP',
+  japan: 'JP',
+  japanese: 'JP',
+  '日语': 'JP',
+
+  kr: 'KR',
+  ko: 'KR',
+  korea: 'KR',
+  korean: 'KR',
+  '韩语': 'KR'
+};
+
+const cache = {
+  pool: [],
+  poolBuiltAt: 0,
+  onlineSet: new Set(),
+  onlineBuiltAt: 0,
+  buildingPool: null,
+  buildingOnline: null
+};
+
+function now() {
+  return Date.now();
+}
+
+function cleanText(value) {
+  return String(value == null ? '' : value).replace(/["\\[\]{}]/g, '').trim();
+}
+
+function stripHtml(value) {
+  return String(value == null ? '' : value).replace(/<[^>]+>/g, '').trim();
+}
+
+function parseMulti(value) {
+  if (Array.isArray(value)) {
+    return value.map(v => cleanText(v)).filter(Boolean);
+  }
+
+  if (value == null || value === '') return [];
+
+  const raw = String(value).trim();
+
+  try {
+    const parsed = JSON.parse(raw);
+
+    if (Array.isArray(parsed)) {
+      return parsed.map(v => cleanText(v)).filter(Boolean);
+    }
+
+    if (parsed && typeof parsed === 'object') {
+      return Object.values(parsed).map(v => cleanText(v)).filter(Boolean);
+    }
+
+    return [cleanText(parsed)].filter(Boolean);
+  } catch (e) {
+    return raw.split(/[，,|/]+/).map(v => cleanText(v)).filter(Boolean);
+  }
+}
+
+function toLangCode(value) {
+  const text = cleanText(value).toLowerCase();
+  if (!text) return '';
+
+  if (LANG_MAP[text]) return LANG_MAP[text];
+
+  const keys = Object.keys(LANG_MAP);
+  for (const key of keys) {
+    if (text.includes(key)) return LANG_MAP[key];
+  }
+
+  if (/^[a-z]{2}$/.test(text)) return text.toUpperCase();
+
+  return text.length >= 2 ? text.substring(0, 2).toUpperCase() : '';
+}
+
+function toLangCodes(value) {
+  const codes = parseMulti(value).map(toLangCode).filter(Boolean);
+  return Array.from(new Set(codes));
+}
+
+function normalizeGender(value) {
+  const text = cleanText(value).toLowerCase();
+  if (!text) return '';
+
+  if (text === 'm' || text === 'male' || text === '男' || text.includes('男')) return 'M';
+  if (text === 'f' || text === 'female' || text === '女' || text.includes('女')) return 'F';
+
+  return '';
+}
+
+function matchCountryCode(value) {
+  const text = cleanText(value).toLowerCase();
+  if (!text) return '';
+
+  if (/^[a-z]{2}$/.test(text) && COUNTRY_KEYWORDS[text]) return text;
+
+  const codes = Object.keys(COUNTRY_KEYWORDS);
+  for (const code of codes) {
+    const keywords = COUNTRY_KEYWORDS[code];
+
+    for (const keyword of keywords) {
+      if (text === keyword || text.includes(keyword)) return code;
+    }
+  }
+
+  return '';
+}
+
+function resolveCountryCode(data, nativeCode) {
+  const fields = [
+    data.countryCode,
+    data.country_code,
+    data.country,
+    data.country_name,
+    data.nationality,
+    data.region,
+    data.language_flag,
+    data.location
+  ];
+
+  for (const field of fields) {
+    const code = matchCountryCode(field);
+    if (code) return code;
+  }
+
+  const fallback = {
+    CN: 'cn',
+    MM: 'mm',
+    VI: 'vn',
+    EN: 'gb',
+    TH: 'th',
+    JP: 'jp',
+    KR: 'kr'
+  };
+
+  return fallback[nativeCode] || '';
+}
+
+function flagEmoji(code) {
+  const country = String(code || '').toUpperCase();
+  if (!/^[A-Z]{2}$/.test(country)) return '';
+
+  return country.replace(/./g, char => String.fromCodePoint(127397 + char.charCodeAt(0)));
+}
+
+function ageText(age) {
+  const n = Number(age || 0);
+  return n > 0 ? `${n}岁` : '';
+}
+
+function decorateUser(data) {
+  const uid = Number(data.uid || 0);
+  if (!uid || data.banned || data.deleted) return null;
+
+  const nativeCodes = toLangCodes(data.language_fluent || data.native_language);
+  const learnCodes = toLangCodes(data.language_learning || data.target_language);
+  const nativeCode = nativeCodes[0] || '';
+  const learnCode = learnCodes[0] || '';
+  const countryCode = resolveCountryCode(data, nativeCode);
+  const bioRaw = stripHtml(data.aboutme || data.signature || '');
+  const bio = bioRaw.length > 80 ? `${bioRaw.substring(0, 80)}…` : bioRaw;
+  const lat = Number(data.lat);
+  const lng = Number(data.lng);
+  const geoUpdatedAt = Number(data.languagePartnerGeoUpdatedAt || 0);
+  const geoExpiresAt = Number(data.languagePartnerGeoExpiresAt || 0);
+
+  return {
+    uid,
+    username: String(data.username || ''),
+    userslug: String(data.userslug || ''),
+    picture: data.picture || '',
+    genderCode: normalizeGender(data.gender || data.sex),
+    age: Number(data.age || 0) || 0,
+    ageText: ageText(data.age),
+    bio,
+    nativeCode,
+    nativeCodes,
+    learnCode,
+    learnCodes,
+    countryCode,
+    flagEmoji: flagEmoji(countryCode),
+    flagSrc: countryCode ? `https://flagcdn.com/w40/${countryCode}.png` : '',
+    relationshipStatus: relationshipOption(data.relationship_status).value,
+    relationshipKey: relationshipOption(data.relationship_status).key,
+    relationshipEmoji: relationshipOption(data.relationship_status).emoji || '',
+    lastonline: Number(data.lastonline || 0) || 0,
+    status: data.status || '',
+    lat: Number.isFinite(lat) ? lat : null,
+    lng: Number.isFinite(lng) ? lng : null,
+    geoUpdatedAt,
+    geoExpiresAt,
+    profileLink: data.userslug ? `/user/${encodeURIComponent(data.userslug)}/topics` : '#'
+  };
+}
+
+async function getRecentUidsFromSortedSet(key, cutoff) {
+  let values = [];
+
+  try {
+    values = await db.getSortedSetRevRangeByScore(key, 0, CONFIG.maxPoolScan - 1, '+inf', cutoff);
+  } catch (e) {
+    values = [];
+  }
+
+  return values.map(uid => Number(uid)).filter(uid => uid > 0);
+}
+
+async function getCandidateUids() {
+  const cutoff = now() - CONFIG.activeWindowMs;
+  const seen = new Set();
+  const recentKeys = ['users:lastonline', 'users:online'];
+
+  for (const key of recentKeys) {
+    const uids = await getRecentUidsFromSortedSet(key, cutoff);
+
+    for (const uid of uids) {
+      seen.add(uid);
+      if (seen.size >= CONFIG.maxPoolScan) return Array.from(seen);
+    }
+  }
+
+  // Fallback for NodeBB setups without a lastonline sorted set. The final 24h
+  // filter still happens in buildPool(), so inactive users are not returned.
+  let fallback = [];
+
+  try {
+    fallback = await db.getSortedSetRevRange('users:joindate', 0, CONFIG.maxPoolScan - 1);
+  } catch (e) {
+    fallback = [];
+  }
+
+  for (const uid of fallback.map(value => Number(value)).filter(value => value > 0)) {
+    seen.add(uid);
+    if (seen.size >= CONFIG.maxPoolScan) break;
+  }
+
+  return Array.from(seen);
+}
+
+function isOnlineWithinWindow(userData, onlineSet) {
+  if (!userData || !userData.uid) return false;
+
+  const uid = Number(userData.uid || 0);
+
+  // users:online 已经在 getOnlineSet() 中按 10 分钟窗口过滤过
+  if (uid && onlineSet && onlineSet.has(uid)) return true;
+
+  // 不再无条件信任 status === 'online'，防止旧账号状态残留
+  const last = Number(userData.lastonline || 0);
+  return !!last && now() - last <= CONFIG.onlineFallbackMs;
+}
+
+function isActiveWithinWindow(item, onlineSet) {
+  if (!item || !item.uid) return false;
+
+  if (isOnlineWithinWindow(item, onlineSet)) return true;
+
+  const last = Number(item.lastonline || 0);
+  return !!last && now() - last <= CONFIG.activeWindowMs;
+}
+
+async function buildPool() {
+  if (cache.buildingPool) return cache.buildingPool;
+
+  cache.buildingPool = (async () => {
+    const [uids, onlineSet] = await Promise.all([
+      getCandidateUids(),
+      getOnlineSet().catch(() => new Set())
+    ]);
+
+    const pool = [];
+
+    for (let i = 0; i < uids.length; i += CONFIG.batchSize) {
+      const batchUids = uids.slice(i, i + CONFIG.batchSize);
+
+      let users = [];
+
+      try {
+        users = await user.getUsersFields(batchUids, USER_FIELDS);
+      } catch (e) {
+        users = [];
+      }
+
+      for (const item of users) {
+        const decorated = decorateUser(item || {});
+        if (decorated && isActiveWithinWindow(decorated, onlineSet)) {
+          pool.push(decorated);
+        }
+      }
+    }
+
+    cache.pool = pool;
+    cache.poolBuiltAt = now();
+    cache.buildingPool = null;
+
+    return pool;
+  })();
+
+  return cache.buildingPool;
+}
+
+async function getPool() {
+  if (!cache.poolBuiltAt || now() - cache.poolBuiltAt > CONFIG.profilePoolTtlMs) {
+    return await buildPool();
+  }
+
+  return cache.pool;
+}
+
+async function getOnlineSet() {
+  if (cache.onlineBuiltAt && now() - cache.onlineBuiltAt <= CONFIG.onlineCacheTtlMs) {
+    return cache.onlineSet;
+  }
+
+  if (cache.buildingOnline) return cache.buildingOnline;
+
+  cache.buildingOnline = (async () => {
+    const cutoff = now() - CONFIG.onlineTtlMs;
+    let values = [];
+
+    // 清理 10 分钟之前的 users:online 残留，防止老账号长期显示在线
+    try {
+      if (db.sortedSetRemoveRangeByScore) {
+        await db.sortedSetRemoveRangeByScore('users:online', 0, cutoff);
+      }
+    } catch (e) {}
+
+    // 只读取最近 10 分钟在线的 uid
+    try {
+      values = await db.getSortedSetRevRangeByScore('users:online', 0, -1, '+inf', cutoff);
+    } catch (e) {
+      values = [];
+    }
+
+    cache.onlineSet = new Set(values.map(v => Number(v)).filter(v => v > 0));
+    cache.onlineBuiltAt = now();
+    cache.buildingOnline = null;
+
+    return cache.onlineSet;
+  })();
+
+  return cache.buildingOnline;
+}
+
+function applyOnline(userData, onlineSet) {
+  const isOnline = isOnlineWithinWindow(userData, onlineSet);
+
+  return Object.assign({}, userData, {
+    isOnline: !!isOnline,
+    statusText: isOnline ? '当前在线' : '',
+    canChat: false
+  });
+}
+
+function hashString(input) {
+  let h = 2166136261;
+
+  for (let i = 0; i < input.length; i += 1) {
+    h ^= input.charCodeAt(i);
+    h += (h << 1) + (h << 4) + (h << 7) + (h << 8) + (h << 24);
+  }
+
+  return h >>> 0;
+}
+
+function stableRandomSort(items, seed) {
+  return items
+    .map(item => ({
+      item,
+      score: hashString(`${seed}:${item.uid}`)
+    }))
+    .sort((a, b) => a.score - b.score)
+    .map(entry => entry.item);
+}
+
+function intersect(a, b) {
+  const set = new Set(a || []);
+  return (b || []).some(value => set.has(value));
+}
+
+function languageScore(me, other) {
+  if (!me) return 0;
+
+  let score = 0;
+
+  if (intersect(me.learnCodes, other.nativeCodes)) score += 30;
+  if (intersect(me.nativeCodes, other.learnCodes)) score += 30;
+  if (intersect(me.learnCodes, other.learnCodes)) score += 5;
+
+  return score;
+}
+
+function radians(value) {
+  return value * Math.PI / 180;
+}
+
+function distanceMeters(lat1, lng1, lat2, lng2) {
+  const earth = 6371000;
+  const dLat = radians(lat2 - lat1);
+  const dLng = radians(lng2 - lng1);
+
+  const a =
+    Math.sin(dLat / 2) ** 2 +
+    Math.cos(radians(lat1)) *
+    Math.cos(radians(lat2)) *
+    Math.sin(dLng / 2) ** 2;
+
+  return Math.round(earth * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a)));
+}
+
+function distanceBucket(meters) {
+  if (!Number.isFinite(meters)) return 'unknown';
+  if (meters <= 300) return 'm300';
+  if (meters <= 500) return 'm500';
+  if (meters <= 1000) return 'km1';
+  if (meters <= 3000) return 'km3';
+  if (meters <= 5000) return 'km5';
+  if (meters <= 10000) return 'km10';
+  if (meters <= 30000) return 'km30';
+
+  return 'nearby';
+}
+
+function distanceText(bucket) {
+  const map = {
+    m300: '300米内',
+    m500: '500米内',
+    km1: '1km内',
+    km3: '3km内',
+    km5: '5km内',
+    km10: '10km内',
+    km30: '30km内',
+    nearby: '同城附近',
+    unknown: '附近'
+  };
+
+  return map[bucket] || map.unknown;
+}
+
+function hasValidGeo(item) {
+  if (!Number.isFinite(item.lat) || !Number.isFinite(item.lng)) return false;
+  if (!item.geoExpiresAt) return true;
+
+  return Number(item.geoExpiresAt) > now();
+}
+
+async function getViewer(uid, pool) {
+  if (!uid) return null;
+  return pool.find(item => Number(item.uid) === Number(uid)) || null;
+}
+
+async function getSeenSet(uid, mode) {
+  if (!uid) return new Set();
+
+  const key = `peipePartners:seen:${mode}:${uid}`;
+  const cutoff = now() - CONFIG.seenTtlMs;
+
+  try {
+    if (db.sortedSetRemoveRangeByScore) {
+      await db.sortedSetRemoveRangeByScore(key, 0, cutoff);
+    }
+  } catch (e) {}
+
+  let values = [];
+
+  try {
+    values = await db.getSortedSetRevRangeByScore(key, 0, -1, '+inf', cutoff);
+  } catch (e) {
+    try {
+      values = await db.getSortedSetRevRange(key, 0, -1);
+    } catch (err) {
+      values = [];
+    }
+  }
+
+  return new Set(values.map(v => Number(v)));
+}
+
+async function addSeen(uid, mode, targets) {
+  if (!uid || !targets.length) return;
+
+  const key = `peipePartners:seen:${mode}:${uid}`;
+  const timestamp = now();
+
+  try {
+    await db.sortedSetAdd(
+      key,
+      targets.map(() => timestamp),
+      targets.map(item => Number(item.uid))
+    );
+  } catch (e) {
+    for (const item of targets) {
+      try {
+        await db.sortedSetAdd(key, timestamp, Number(item.uid));
+      } catch (err) {}
+    }
+  }
+}
+
+async function getChattedSet(uid) {
+  if (!uid) return new Set();
+
+  const key = `peipePartners:chatted:${uid}`;
+  const cutoff = now() - CONFIG.chattedRetentionMs;
+
+  try {
+    if (db.sortedSetRemoveRangeByScore) {
+      await db.sortedSetRemoveRangeByScore(key, 0, cutoff);
+    }
+  } catch (e) {}
+
+  let values = [];
+
+  try {
+    values = await db.getSortedSetRevRange(key, 0, -1);
+  } catch (e) {
+    values = [];
+  }
+
+  return new Set(values.map(v => Number(v)));
+}
+
+function canChat(viewerUid, targetUid) {
+  return !!viewerUid && Number(viewerUid) !== Number(targetUid);
+}
+
+function dayKey(timestamp = now()) {
+  return new Date(timestamp).toISOString().slice(0, 10);
+}
+
+async function isVip(uid) {
+  if (!uid) return false;
+
+  for (const groupName of CONFIG.vipGroups) {
+    try {
+      if (await groups.isMember(uid, groupName)) return true;
+    } catch (e) {}
+  }
+
+  return false;
+}
+
+async function getGreetLimit(uid) {
+  const vip = await isVip(uid);
+  return vip ? CONFIG.vipDailyGreetLimit : CONFIG.dailyGreetLimit;
+}
+
+async function getDailyGreetTargets(uid) {
+  if (!uid) return [];
+
+  const key = `peipePartners:greet:${dayKey()}:${uid}`;
+
+  try {
+    return (await db.getSortedSetRange(key, 0, -1)).map(v => Number(v)).filter(Boolean);
+  } catch (e) {
+    return [];
+  }
+}
+
+async function getGreetQuota(uid) {
+  const [limit, targets] = await Promise.all([
+    getGreetLimit(uid),
+    getDailyGreetTargets(uid)
+  ]);
+
+  const used = new Set(targets).size;
+
+  return {
+    limit,
+    used,
+    remaining: Math.max(limit - used, 0)
+  };
+}
+
+async function recordGreet(uid, targetUid) {
+  const key = `peipePartners:greet:${dayKey()}:${uid}`;
+  await db.sortedSetAdd(key, now(), Number(targetUid));
+}
+
+async function hasChatted(uid, targetUid) {
+  const set = await getChattedSet(uid);
+  return set.has(Number(targetUid));
+}
+
+async function markChattedPair(uid, targetUid) {
+  const timestamp = now();
+
+  await Promise.all([
+    db.sortedSetAdd(`peipePartners:chatted:${uid}`, timestamp, Number(targetUid)),
+    db.sortedSetAdd(`peipePartners:chatted:${targetUid}`, timestamp, Number(uid))
+  ]);
+}
+
+async function findPrivateRoom(uid, targetUid) {
+  uid = Number(uid || 0);
+  targetUid = Number(targetUid || 0);
+
+  if (!uid || !targetUid) return 0;
+
+  let roomIds = [];
+
+  try {
+    roomIds = await db.getSortedSetRevRange(`uid:${uid}:chat:rooms`, 0, 200);
+  } catch (e) {
+    roomIds = [];
+  }
+
+  for (const roomId of roomIds) {
+    let uids = [];
+
+    try {
+      uids = await db.getSortedSetRange(`chat:room:${roomId}:uids`, 0, -1);
+    } catch (e) {
+      uids = [];
+    }
+
+    const numbers = uids.map(v => Number(v)).filter(Boolean);
+
+    if (numbers.length === 2 && numbers.includes(uid) && numbers.includes(targetUid)) {
+      return Number(roomId);
+    }
+  }
+
+  return 0;
+}
+
+async function createPrivateRoom(uid, targetUid) {
+  const roomId = await Messaging.newRoom(Number(uid), {
+    uids: [Number(targetUid)]
+  });
+
+  return Number(roomId || 0);
+}
+
+function publicUser(item, onlineSet, viewerUid) {
+  const withOnline = applyOnline(item, onlineSet);
+
+  delete withOnline.lat;
+  delete withOnline.lng;
+  delete withOnline.geoUpdatedAt;
+  delete withOnline.geoExpiresAt;
+  delete withOnline.distanceMeters;
+  delete withOnline.distanceKm;
+
+  withOnline.canChat = canChat(viewerUid, withOnline.uid);
+
+  return withOnline;
+}
+
+async function list(req) {
+  const mode = req.query.mode === 'nearby' ? 'nearby' : 'recommend';
+  const viewerUid = Number(req.uid || 0);
+  const limit = Math.min(
+    Math.max(Number(req.query.limit || CONFIG.defaultLimit), 1),
+    CONFIG.maxLimit
+  );
+  const cursor = Math.max(Number(req.query.cursor || 0), 0);
+
+  const pool = await getPool();
+  const onlineSet = await getOnlineSet();
+  const viewer = await getViewer(viewerUid, pool);
+  const seenSet = await getSeenSet(viewerUid, mode);
+  const chattedSet = await getChattedSet(viewerUid);
+  const seed = `${viewerUid || 'guest'}:${mode}:${Math.floor(now() / CONFIG.profilePoolTtlMs)}`;
+
+  let candidates = pool.filter(item => (
+    Number(item.uid) !== viewerUid &&
+    !chattedSet.has(Number(item.uid))
+  ));
+
+  let needLocation = false;
+
+  if (mode === 'nearby') {
+    if (!viewer || !hasValidGeo(viewer)) {
+      needLocation = true;
+      candidates = [];
+    } else {
+      candidates = candidates
+        .filter(hasValidGeo)
+        .map(item => {
+          const meters = distanceMeters(viewer.lat, viewer.lng, item.lat, item.lng);
+          const bucket = distanceBucket(meters);
+
+          return Object.assign({}, item, {
+            distanceMeters: meters,
+            distanceKm: Math.round(meters / 100) / 10,
+            distanceBucket: bucket,
+            distanceText: distanceText(bucket)
+          });
+        })
+        .sort((a, b) => {
+          const ao = isOnlineWithinWindow(a, onlineSet);
+          const bo = isOnlineWithinWindow(b, onlineSet);
+
+          if (ao !== bo) return ao ? -1 : 1;
+          if (a.distanceMeters !== b.distanceMeters) return a.distanceMeters - b.distanceMeters;
+
+          return hashString(`${seed}:${a.uid}`) - hashString(`${seed}:${b.uid}`);
+        });
+    }
+  } else {
+    candidates = candidates
+      .map(item => ({
+        item,
+        isOnline: isOnlineWithinWindow(item, onlineSet),
+        hasLanguageMatch: languageScore(viewer, item) > 0,
+        randomScore: hashString(`${seed}:${item.uid}`)
+      }))
+      .sort((a, b) => {
+        if (a.isOnline !== b.isOnline) return a.isOnline ? -1 : 1;
+        if (a.hasLanguageMatch !== b.hasLanguageMatch) return a.hasLanguageMatch ? -1 : 1;
+
+        return a.randomScore - b.randomScore;
+      })
+      .map(entry => entry.item);
+  }
+
+  let chosen;
+
+  if (viewerUid) {
+    const unseen = candidates.filter(item => !seenSet.has(Number(item.uid)));
+    const seen = candidates.filter(item => seenSet.has(Number(item.uid)));
+
+    chosen = unseen.slice(0, limit);
+
+    if (chosen.length < limit) {
+      chosen = chosen.concat(seen.slice(0, limit - chosen.length));
+    }
+  } else {
+    const sorted = stableRandomSort(candidates, seed);
+    chosen = sorted.slice(cursor, cursor + limit);
+  }
+
+  await addSeen(viewerUid, mode, chosen);
+
+  const users = chosen.map(item => publicUser(item, onlineSet, viewerUid));
+
+  return {
+    ok: true,
+    mode,
+    users,
+    needLocation,
+    nextCursor: viewerUid
+      ? (users.length ? String(now()) : null)
+      : (cursor + users.length < candidates.length ? String(cursor + users.length) : null),
+    hasMore: viewerUid
+      ? users.length === limit
+      : cursor + users.length < candidates.length,
+    poolTtl: Math.round(CONFIG.profilePoolTtlMs / 1000),
+    poolAgeSec: cache.poolBuiltAt ? Math.round((now() - cache.poolBuiltAt) / 1000) : 0,
+    onlineTtl: Math.round(CONFIG.onlineTtlMs / 1000),
+    onlineCacheTtl: Math.round(CONFIG.onlineCacheTtlMs / 1000),
+    onlineAgeSec: cache.onlineBuiltAt ? Math.round((now() - cache.onlineBuiltAt) / 1000) : 0,
+    poolCount: pool.length,
+    candidateCount: candidates.length,
+    hiddenChattedCount: chattedSet.size
+  };
+}
+
+async function profileStatus(uid) {
+  const data = await user.getUserFields(uid, PROFILE_FIELDS);
+  const missing = [];
+
+  if (!cleanText(data.language_flag)) missing.push('language_flag');
+  if (!parseMulti(data.language_fluent).length) missing.push('language_fluent');
+  if (!parseMulti(data.language_learning).length) missing.push('language_learning');
+  if (!normalizeGender(data.gender)) missing.push('gender');
+
+  const age = Number(data.age || 0);
+  if (!age || age < 13 || age > 99) missing.push('age');
+
+  return {
+    ok: true,
+    complete: missing.length === 0,
+    missing,
+    profile: data
+  };
+}
+
+function optionValues(key) {
+  const list = key === 'relationships' ? getRelationshipOptions() : (options[key] || []);
+  return new Set(list.map(item => item.value));
+}
+
+async function saveProfile(uid, body) {
+  const country = cleanText(body.language_flag || body.country || body.nationality);
+  const nativeList = parseMulti(body.language_fluent || body.native || body.native_language);
+  const learningList = parseMulti(body.language_learning || body.learning || body.target_language);
+  const gender = cleanText(body.gender);
+  const relationship = cleanText(body.relationship_status || body.relationship || '保密') || '保密';
+  const age = Number(body.age || 0);
+
+  const countryValues = optionValues('countries');
+  const languageValues = optionValues('languages');
+  const genderValues = optionValues('genders');
+  const relationshipValues = optionValues('relationships');
+
+  const validNative = nativeList.length > 0 && nativeList.every(value => languageValues.has(value));
+  const validLearning = learningList.length > 0 && learningList.every(value => languageValues.has(value));
+
+  if (
+    !countryValues.has(country) ||
+    !validNative ||
+    !validLearning ||
+    !genderValues.has(gender) ||
+    !relationshipValues.has(relationship) ||
+    !age ||
+    age < 13 ||
+    age > 99
+  ) {
+    return {
+      ok: false,
+      error: 'invalid-profile'
+    };
+  }
+
+  await user.setUserFields(uid, {
+    language_flag: country,
+    language_fluent: JSON.stringify(Array.from(new Set(nativeList))),
+    language_learning: JSON.stringify(Array.from(new Set(learningList))),
+    gender,
+    relationship_status: relationship,
+    age
+  });
+
+  cache.poolBuiltAt = 0;
+
+  return {
+    ok: true,
+    complete: true
+  };
+}
+
+async function saveLocation(uid, body) {
+  const lat = Number(body.lat);
+  const lng = Number(body.lng);
+
+  if (
+    !Number.isFinite(lat) ||
+    !Number.isFinite(lng) ||
+    Math.abs(lat) > 90 ||
+    Math.abs(lng) > 180
+  ) {
+    return {
+      ok: false,
+      error: 'invalid-location'
+    };
+  }
+
+  const fields = await user.getUserFields(uid, ['languagePartnerGeoUpdatedAt']);
+  const previous = Number(fields.languagePartnerGeoUpdatedAt || 0);
+
+  if (previous && now() - previous < CONFIG.locationSyncMs && !body.force) {
+    return {
+      ok: true,
+      skipped: true,
+      reason: 'recently-updated',
+      updatedAt: previous,
+      expiresAt: previous + CONFIG.locationTtlMs
+    };
+  }
+
+  const updatedAt = now();
+  const expiresAt = updatedAt + CONFIG.locationTtlMs;
+
+  await user.setUserFields(uid, {
+    lat: lat.toFixed(6),
+    lng: lng.toFixed(6),
+    languagePartnerGeoUpdatedAt: updatedAt,
+    languagePartnerGeoExpiresAt: expiresAt
+  });
+
+  cache.poolBuiltAt = 0;
+
+  return {
+    ok: true,
+    updatedAt,
+    expiresAt
+  };
+}
+
+async function markChatted(uid, body) {
+  const targetUid = Number(body.uid || body.targetUid || 0);
+
+  if (!targetUid || targetUid === Number(uid)) {
+    return {
+      ok: false,
+      error: 'invalid-target'
+    };
+  }
+
+  await markChattedPair(uid, targetUid);
+
+  return {
+    ok: true
+  };
+}
+
+async function greet(uid, body) {
+  uid = Number(uid || 0);
+
+  const targetUid = Number(body.uid || body.targetUid || 0);
+
+  if (!uid) {
+    return {
+      ok: false,
+      error: 'login-required'
+    };
+  }
+
+  if (!targetUid || targetUid === uid) {
+    return {
+      ok: false,
+      error: 'invalid-target'
+    };
+  }
+
+  const target = await user.getUserFields(targetUid, ['uid', 'deleted', 'banned']);
+
+  if (!target || !Number(target.uid) || target.deleted || target.banned) {
+    return {
+      ok: false,
+      error: 'invalid-target'
+    };
+  }
+
+  const existingRoomId = await findPrivateRoom(uid, targetUid);
+
+  if (existingRoomId) {
+    await markChattedPair(uid, targetUid);
+
+    return {
+      ok: true,
+      roomId: existingRoomId,
+      existing: true,
+      quota: await getGreetQuota(uid)
+    };
+  }
+
+  const alreadyChatted = await hasChatted(uid, targetUid);
+
+  if (!alreadyChatted) {
+    const quota = await getGreetQuota(uid);
+
+    if (quota.remaining <= 0) {
+      return {
+        ok: false,
+        error: 'greet-limit-exceeded',
+        quota
+      };
+    }
+
+    await recordGreet(uid, targetUid);
+  }
+
+  const roomId = await createPrivateRoom(uid, targetUid);
+
+  if (!roomId) {
+    return {
+      ok: false,
+      error: 'chat-open-failed'
+    };
+  }
+
+  await markChattedPair(uid, targetUid);
+
+  return {
+    ok: true,
+    roomId,
+    existing: false,
+    quota: await getGreetQuota(uid)
+  };
+}
+
+function requestUid(reqOrData) {
+  const data = reqOrData || {};
+  return Number(
+    data.uid ||
+    data.userId ||
+    data.req && data.req.uid ||
+    data.req && data.req.user && data.req.user.uid ||
+    data.caller && data.caller.uid ||
+    data.user && data.user.uid ||
+    0
+  ) || 0;
+}
+
+function requestIsAdmin(reqOrData) {
+  const data = reqOrData || {};
+  const userObj = data.user || data.req && data.req.user || {};
+  return !!(userObj && (userObj.isAdmin || userObj.administrator || userObj.isGlobalMod));
+}
+
+async function isStudyGroupMember(uid) {
+  uid = Number(uid || 0);
+  if (!uid) return false;
+  const groupsToCheck = [HAA9_STUDY_ACCESS.groupName].concat(HAA9_STUDY_ACCESS.adminGroups || []);
+  for (const groupName of groupsToCheck) {
+    try {
+      if (await groups.isMember(uid, groupName)) return true;
+    } catch (e) {}
+  }
+  return false;
+}
+
+async function canReadStudyContent(reqOrData) {
+  if (requestIsAdmin(reqOrData)) return true;
+  return await isStudyGroupMember(requestUid(reqOrData));
+}
+
+async function getTopicCidSafe(tid) {
+  tid = Number(tid || 0);
+  if (!tid) return 0;
+  try {
+    if (topics.getTopicFields) {
+      const fields = await topics.getTopicFields(tid, ['cid']);
+      return Number(fields && fields.cid || 0);
+    }
+  } catch (e) {}
+  try {
+    if (topics.getTopicField) return Number(await topics.getTopicField(tid, 'cid')) || 0;
+  } catch (e) {}
+  return 0;
+}
+
+async function getTidFromPidSafe(pid) {
+  pid = Number(pid || 0);
+  if (!pid) return 0;
+  try {
+    if (posts.getPostField) return Number(await posts.getPostField(pid, 'tid')) || 0;
+  } catch (e) {}
+  try {
+    if (posts.getPostFields) {
+      const fields = await posts.getPostFields(pid, ['tid']);
+      return Number(fields && fields.tid || 0);
+    }
+  } catch (e) {}
+  return 0;
+}
+
+async function protectedTidFromRequest(req) {
+  const path = String(req && (req.path || req.originalUrl || req.url) || '');
+  let match = path.match(/\/api\/v3\/topics\/(\d+)(?:\/|\?|$)/i) ||
+    path.match(/\/api\/topic\/(\d+)(?:\/|\?|$)/i) ||
+    path.match(/\/topic\/(\d+)(?:\/|\?|$)/i);
+  if (match) return Number(match[1]) || 0;
+
+  match = path.match(/\/api\/v3\/posts\/(\d+)(?:\/|\?|$)/i) ||
+    path.match(/\/api\/post\/(\d+)(?:\/|\?|$)/i) ||
+    path.match(/\/post\/(\d+)(?:\/|\?|$)/i);
+  if (match) return await getTidFromPidSafe(match[1]);
+  return 0;
+}
+
+function isJsonRequest(req) {
+  const path = String(req && (req.path || req.originalUrl || req.url) || '');
+  const accept = String(req && req.headers && req.headers.accept || '');
+  return path.includes('/api/') || accept.includes('application/json') || req.xhr;
+}
+
+function denyStudyContent(req, res) {
+  const payload = {
+    ok: false,
+    code: 'study_group_required',
+    cid: HAA9_STUDY_ACCESS.cid,
+    groupName: HAA9_STUDY_ACCESS.groupName,
+    message: `只有加入 ${HAA9_STUDY_ACCESS.groupName} 的用户才可以查看帖子内容`
+  };
+  if (isJsonRequest(req)) return res.status(403).json(payload);
+  return res.status(403).send(`<!doctype html><meta charset="utf-8"><title>需要加入学习小组</title><style>body{font-family:system-ui,-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;margin:0;display:flex;min-height:100vh;align-items:center;justify-content:center;background:#f8fafc;color:#111827}.box{max-width:420px;margin:24px;padding:28px;border-radius:22px;background:#fff;box-shadow:0 16px 42px rgba(15,23,42,.10);text-align:center}.lock{font-size:42px}.msg{margin-top:12px;color:#64748b;line-height:1.6}</style><div class="box"><div class="lock">🔒</div><h2>仅学习小组可查看内容</h2><div class="msg">普通用户可以浏览标题，但不能查看帖子正文。请先加入 ${HAA9_STUDY_ACCESS.groupName}。</div></div>`);
+}
+
+async function studyContentGate(req, res, next) {
+  try {
+    const tid = await protectedTidFromRequest(req);
+    if (!tid) return next();
+    const cid = await getTopicCidSafe(tid);
+    if (Number(cid) !== Number(HAA9_STUDY_ACCESS.cid)) return next();
+    if (await canReadStudyContent(req)) return next();
+    return denyStudyContent(req, res);
+  } catch (e) {
+    return next(e);
+  }
+}
+
+function sanitizeProtectedTopic(topic) {
+  if (!topic || typeof topic !== 'object') return topic;
+  topic.haa9Locked = true;
+  topic.isStudyLocked = true;
+  topic.teaser = '';
+  topic.teaserPid = 0;
+  topic.content = '';
+  topic.raw = '';
+  topic.mainPost = null;
+  topic.postData = null;
+  topic.posts = [];
+  if (topic.haa9 && typeof topic.haa9 === 'object') {
+    topic.haa9.locked = true;
+    topic.haa9.media = { text: '', images: [], audios: [], tiktoks: [], locked: true };
+  }
+  return topic;
+}
+
+function topicListCandidates(data) {
+  const lists = [];
+  const push = value => { if (Array.isArray(value)) lists.push(value); };
+  push(data && data.topics);
+  push(data && data.topicData);
+  push(data && data.data && data.data.topics);
+  push(data && data.category && data.category.topics);
+  push(data && data.templateData && data.templateData.topics);
+  push(data && data.response && data.response.topics);
+  return lists;
+}
+
+async function filterCategoryBuild(data) {
+  const cid = Number(
+    data && data.cid ||
+    data && data.category && data.category.cid ||
+    data && data.templateData && data.templateData.cid ||
+    data && data.data && data.data.cid ||
+    0
+  );
+  if (cid !== Number(HAA9_STUDY_ACCESS.cid)) return data;
+  if (await canReadStudyContent(data)) return data;
+  topicListCandidates(data).forEach(list => list.forEach(sanitizeProtectedTopic));
+  return data;
+}
+
+async function filterTopicsGet(data) {
+  if (await canReadStudyContent(data)) return data;
+  const lists = topicListCandidates(data);
+  for (const list of lists) {
+    for (const topic of list) {
+      const cid = Number(topic && topic.cid || 0) || await getTopicCidSafe(topic && topic.tid);
+      if (cid === Number(HAA9_STUDY_ACCESS.cid)) sanitizeProtectedTopic(topic);
+    }
+  }
+  return data;
+}
+
+function asyncHandler(fn) {
+  return function handler(req, res, next) {
+    Promise.resolve(fn(req, res, next)).catch(next);
+  };
+}
+
+function registerRoutes(params) {
+  const router = params && (params.router || params.app);
+  const app = params && params.app;
+  const middleware = params && params.middleware || {};
+  if (!router && !app) return;
+
+  const middlewares = [middleware.authenticateRequest].filter(Boolean);
+  const registerOn = router || app;
+  const profileHandler = asyncHandler(async (req, res) => {
+    res.json(await profiles(req));
+  });
+  if (registerOn.get) {
+    registerOn.get('/api/peipe-haa9/profiles', middlewares, profileHandler);
+    registerOn.get('/api/plugins/peipe-haa9/profiles', middlewares, profileHandler);
+    registerOn.get('/api/peipe-partners/profiles', middlewares, profileHandler);
+  }
+  if (registerOn.post) {
+    registerOn.post('/api/peipe-haa9/profiles', middlewares, profileHandler);
+    registerOn.post('/api/plugins/peipe-haa9/profiles', middlewares, profileHandler);
+    registerOn.post('/api/peipe-partners/profiles', middlewares, profileHandler);
+  }
+
+  const i18nHandler = asyncHandler(async (req, res) => {
+    res.json(await getPluginI18n(req));
+  });
+  if (registerOn.get) registerOn.get('/api/peipe-haa9/i18n', i18nHandler);
+
+  // Must be mounted before NodeBB topic/post routes are served.
+  if (app && app.use) app.use(studyContentGate);
+  else if (router && router.use) router.use(studyContentGate);
+}
+
+function parseUidList(value) {
+  if (Array.isArray(value)) return value.map(v => Number(v)).filter(v => v > 0);
+  return String(value || '').split(/[，,\s|]+/).map(v => Number(v)).filter(v => v > 0);
+}
+
+function parseSlugList(value) {
+  if (Array.isArray(value)) return value.map(v => cleanText(v)).filter(Boolean);
+  return String(value || '').split(/[，,\s|]+/).map(v => cleanText(v).replace(/^@/, '')).filter(Boolean);
+}
+
+async function uidFromUserslugSafe(userslug) {
+  const slug = cleanText(userslug).replace(/^@/, '');
+  if (!slug) return 0;
+  try {
+    if (typeof user.getUidByUserslug === 'function') return Number(await user.getUidByUserslug(slug)) || 0;
+  } catch (e) {}
+  try {
+    if (typeof user.getUidByUsername === 'function') return Number(await user.getUidByUsername(slug)) || 0;
+  } catch (e) {}
+  return 0;
+}
+
+async function profiles(req) {
+  const body = req.body || {};
+  const query = req.query || {};
+  const rawUids = []
+    .concat(parseUidList(body.uids || body.uid || query.uids || query.uid))
+    .concat(parseUidList(body.userIds || query.userIds));
+  const slugs = []
+    .concat(parseSlugList(body.userslugs || body.userslug || query.userslugs || query.userslug))
+    .concat(parseSlugList(body.slugs || query.slugs));
+  const slugUids = [];
+  for (const slug of Array.from(new Set(slugs))) {
+    const uid = await uidFromUserslugSafe(slug);
+    if (uid) slugUids.push(uid);
+  }
+  const uids = Array.from(new Set(rawUids.concat(slugUids))).slice(0, 100);
+  if (!uids.length) {
+    return { ok: true, users: [], usersByUid: {}, profileTtl: Math.round(CONFIG.profilePoolTtlMs / 1000), onlineTtl: Math.round(CONFIG.onlineTtlMs / 1000), onlineCacheTtl: Math.round(CONFIG.onlineCacheTtlMs / 1000) };
+  }
+  const [rows, onlineSet] = await Promise.all([
+    user.getUsersFields(uids, USER_FIELDS).catch(() => []),
+    getOnlineSet().catch(() => new Set())
+  ]);
+  const viewerUid = Number(req.uid || 0);
+  const users = rows.map(item => decorateUser(item || {})).filter(Boolean).map(item => publicUser(item, onlineSet, viewerUid));
+  const usersByUid = {};
+  users.forEach(item => { usersByUid[String(item.uid)] = item; });
+  return { ok: true, users, usersByUid, profileTtl: Math.round(CONFIG.profilePoolTtlMs / 1000), onlineTtl: Math.round(CONFIG.onlineTtlMs / 1000), onlineCacheTtl: Math.round(CONFIG.onlineCacheTtlMs / 1000), onlineAgeSec: cache.onlineBuiltAt ? Math.round((now() - cache.onlineBuiltAt) / 1000) : 0 };
+}
+
+async function getOptions(req) {
+  const locale = await detectLocale(req);
+  const dict = loadLanguage(locale);
+
+  return {
+    ok: true,
+    locale,
+    i18n: dict,
+    options: localizeOptions(options, dict)
+  };
+}
+
+module.exports = {
+  list,
+  options: getOptions,
+  profiles,
+  getPluginI18n,
+  registerRoutes,
+  studyContentGate,
+  filterCategoryBuild,
+  filterTopicsGet,
+  profileStatus,
+  saveProfile,
+  saveLocation,
+  markChatted,
+  greet,
+  _private: {
+    CONFIG,
+    cache,
+    parseMulti,
+    toLangCodes,
+    normalizeGender,
+    matchCountryCode,
+    distanceBucket,
+    isActiveWithinWindow,
+    isOnlineWithinWindow,
+    HAA9_STUDY_ACCESS,
+    canReadStudyContent,
+    getTopicCidSafe
+  }
+};
