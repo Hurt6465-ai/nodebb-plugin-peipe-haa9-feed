@@ -1,3 +1,923 @@
+/* =========================================================
+   HAA9 unified v2 launch CSS
+   Replace old duplicated HAA8/HAA9 CSS with this cleaned file.
+
+   Important fixed behavior:
+   - native topic content is hidden only after JS marks the item
+   - loading items hide the native avatar/title row and show skeleton instead
+   - TikTok cover stays visible until the video is actually playing
+   ========================================================= */
+:root {
+  --haa9-blue: #2563eb;
+  --haa9-red: #ff2442;
+  --haa9-text: var(--bs-body-color, #111827);
+  --haa9-muted: var(--bs-secondary-color, #6b7280);
+  --haa9-line: rgba(15, 23, 42, 0.10);
+}
+
+body.haa9-mode { overflow-x: hidden; background: #f6f7fb; }
+
+/* Only JS-marked topics are taken over. Avoid using [data-cid="6"] directly,
+   because it hides native titles before skeleton/content are inserted. */
+body.haa9-mode li[component="category/topic"][data-haa9-topic="1"] {
+  border: 1px solid rgba(15, 23, 42, .07) !important;
+  border-bottom: 1px solid rgba(15, 23, 42, .07) !important;
+  border-radius: 18px !important;
+  background: rgba(255, 255, 255, .96) !important;
+  box-shadow: 0 8px 24px rgba(15, 23, 42, .055) !important;
+  padding: 10px 10px 8px !important;
+  margin: 10px 10px 12px !important;
+  position: relative;
+  overflow: hidden;
+}
+
+body.haa9-mode li[component="category/topic"][data-haa9-topic="1"] > .d-flex {
+  gap: 8px !important;
+  padding-top: 0 !important;
+  padding-bottom: 0 !important;
+}
+
+body.haa9-mode li[component="category/topic"][data-haa9-topic="1"]::after { display: none !important; }
+
+/* During async hydration hide the native row, so users don't see a page full of avatars. */
+body.haa9-mode li[component="category/topic"][data-haa9-loading="1"] > .d-flex,
+body.haa9-mode [data-haa9-user-topic-ready="1"][data-haa9-loading="1"] > .d-flex,
+body.haa9-mode [data-haa9-user-topic-ready="1"][data-haa9-loading="1"] > .card,
+body.haa9-mode [data-haa9-user-topic-ready="1"][data-haa9-loading="1"] > .topic-row,
+body.haa9-mode [data-haa9-user-topic-ready="1"][data-haa9-loading="1"] > .list-group-item {
+  max-height: 0 !important;
+  min-height: 0 !important;
+  height: 0 !important;
+  overflow: hidden !important;
+  opacity: 0 !important;
+  visibility: hidden !important;
+  padding-top: 0 !important;
+  padding-bottom: 0 !important;
+  margin-top: 0 !important;
+  margin-bottom: 0 !important;
+  pointer-events: none !important;
+}
+
+body.haa9-mode li[component="category/topic"][data-haa9-ready="1"] h3[component="topic/header"],
+body.haa9-mode li[component="category/topic"][data-haa9-ready="1"] [component="topic/title"],
+body.haa9-mode li[component="category/topic"][data-haa9-ready="1"] .topic-title,
+body.haa9-mode li[component="category/topic"][data-haa9-ready="1"] .timeago,
+body.haa9-mode li[component="category/topic"][data-haa9-ready="1"] time,
+body.haa9-mode li[component="category/topic"][data-haa9-ready="1"] .stats,
+body.haa9-mode li[component="category/topic"][data-haa9-ready="1"] [component="topic/teaser"],
+body.haa9-mode li[component="category/topic"][data-haa9-ready="1"] [component="topic/labels"],
+body.haa9-mode li[component="category/topic"][data-haa9-ready="1"] [component="topic/tags"],
+body.haa9-mode li[component="category/topic"][data-haa9-ready="1"] .tag-list,
+body.haa9-mode li[component="category/topic"][data-haa9-ready="1"] .tag-item,
+body.haa9-mode li[component="category/topic"][data-haa9-ready="1"] a[href*="/tags/"] {
+  display: none !important;
+}
+
+body.haa9-mode li[component="category/topic"][data-haa9-ready="1"] input[type="checkbox"],
+body.haa9-mode li[component="category/topic"][data-haa9-ready="1"] [component="topic/select"],
+body.haa9-mode li[component="category/topic"][data-haa9-ready="1"] .form-check,
+body.haa9-mode li[component="category/topic"][data-haa9-ready="1"] .form-check-input {
+  display: none !important;
+}
+
+body.haa9-user-topics-mode [data-haa9-user-topic-ready="1"] h3[component="topic/header"],
+body.haa9-user-topics-mode [data-haa9-user-topic-ready="1"] [component="topic/title"],
+body.haa9-user-topics-mode [data-haa9-user-topic-ready="1"] .topic-title,
+body.haa9-user-topics-mode [data-haa9-user-topic-ready="1"] [component="topic/labels"],
+body.haa9-user-topics-mode [data-haa9-user-topic-ready="1"] [component="topic/tags"],
+body.haa9-user-topics-mode [data-haa9-user-topic-ready="1"] .tag-list,
+body.haa9-user-topics-mode [data-haa9-user-topic-ready="1"] .tag-item,
+body.haa9-user-topics-mode [data-haa9-user-topic-ready="1"] a[href*="/tags/"] {
+  display: none !important;
+}
+
+body.haa9-mode [component="category/post"],
+body.haa9-mode [component="category/new-topic"],
+body.haa9-mode [component="composer/new_topic"],
+body.haa9-mode button[component="composer"] { display: none !important; }
+
+body.haa9-mode [component="category/toolbar"],
+body.haa9-mode .sticky-tools,
+body.haa9-mode .category-tools,
+body.haa9-mode [component="category"] [component="category/controls"] {
+  position: static !important;
+  top: auto !important;
+  z-index: auto !important;
+  background: transparent !important;
+}
+
+body.haa9-mode [component="category/new-posts"],
+body.haa9-mode [component="category/new_posts"],
+body.haa9-mode [component="category/load-more"],
+body.haa9-mode [component="category/load_more"],
+body.haa9-mode [component="category/update"],
+body.haa9-mode [component="category/updates"],
+body.haa9-mode [data-action="new-posts"],
+body.haa9-mode [data-action="new_posts"],
+body.haa9-mode [data-action="load-more"],
+body.haa9-mode [data-action="load_more"],
+body.haa9-mode [data-action="loadMore"],
+body.haa9-mode [data-action="update"],
+body.haa9-mode [data-action="updates"] {
+  display: none !important;
+  visibility: hidden !important;
+  opacity: 0 !important;
+  height: 0 !important;
+  margin: 0 !important;
+  padding: 0 !important;
+  overflow: hidden !important;
+}
+
+.tk-card, .tk-cards, .tk-official-card, .tk-official-shell, .tk-official-frame,
+.tk-video-box, .t6tk-card, .t6tk-wrap, .ha6tk-card, .ha6tk-wrap,
+.ha6tk3-card, .ha6tk3-wrap, .ha6tk4-card, .ha6tk4-wrap, .ha6tk5-old,
+.haa7-list-head, .haa7-list-body, .haa7-list-stats, .haa7-action,
+.haa7-follow-text, .haa7-flag-badge, .haa7-status-fallback {
+  display: none !important;
+}
+
+.haa9-avatar-host { position: relative !important; cursor: pointer; margin-top: 0 !important; }
+li[component="category/topic"] .flex-shrink-0:has(a[href*="/user/"]) { cursor: pointer; }
+
+.haa9-flag {
+  position: absolute;
+  left: -2px;
+  bottom: -2px;
+  z-index: 3;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 18px;
+  height: 18px;
+  border-radius: 999px;
+  font-size: 16px;
+  line-height: 1;
+  filter: drop-shadow(0 2px 4px rgba(0, 0, 0, .24));
+  pointer-events: none;
+}
+
+.haa9-status-dot {
+  position: absolute;
+  top: -1px;
+  right: -1px;
+  z-index: 3;
+  width: 12px;
+  height: 12px;
+  border: 2px solid #fff;
+  border-radius: 999px;
+  background: #9ca3af;
+}
+.haa9-status-dot.is-online { background: #22c55e; }
+.haa9-status-dot.is-away { background: #f59e0b; }
+.haa9-status-dot.is-dnd { background: #ef4444; }
+
+.haa9-user { min-width: 0; margin-bottom: 2px !important; }
+.haa9-user-topic-user { margin-top: 0 !important; margin-bottom: 4px !important; }
+.haa9-user-row { display: flex; flex-wrap: wrap; align-items: center; gap: 5px !important; min-width: 0; }
+.haa9-name {
+  min-width: 0;
+  color: var(--haa9-text);
+  font-size: 15px !important;
+  font-weight: 800;
+  line-height: 1.18 !important;
+  text-decoration: none !important;
+  word-break: break-word;
+}
+.haa9-follow {
+  display: inline-flex !important;
+  align-items: center !important;
+  gap: 5px !important;
+  min-height: 20px !important;
+  padding: 0 !important;
+  border: 0 !important;
+  border-radius: 0 !important;
+  background: transparent !important;
+  color: #111827;
+  font-size: 12px !important;
+  font-weight: 800;
+  line-height: 1.1;
+  cursor: pointer;
+}
+.haa9-follow::before {
+  content: "";
+  display: inline-block;
+  width: 4px;
+  height: 4px;
+  border-radius: 999px;
+  background: rgba(17, 24, 39, .9);
+  transform: translateY(-1px);
+}
+.haa9-follow.is-following { background: transparent !important; color: #6b7280; }
+.haa9-follow.is-following::before { background: rgba(107, 114, 128, .65); }
+.haa9-follow.is-loading { opacity: .55; pointer-events: none; }
+.haa9-lang {
+  margin-top: 0 !important;
+  color: rgba(75, 85, 99, .82);
+  font-size: 10.5px !important;
+  line-height: 1.18 !important;
+  font-weight: 700;
+  letter-spacing: .005em;
+}
+.haa9-lang-arrow { display: inline-block; margin: 0 2px !important; font-size: 8px !important; opacity: .42; transform: translateY(-1px); font-weight: 600; }
+
+.haa9-content,
+.haa9-user-topic-content {
+  width: 100%;
+  min-width: 0;
+  margin-top: 4px !important;
+}
+.haa9-empty-content { display: none !important; }
+.haa9-text {
+  padding: 0 0 4px !important;
+  color: var(--haa9-text);
+  font-size: 14px !important;
+  font-weight: 600;
+  line-height: 1.42 !important;
+  white-space: pre-wrap;
+  word-break: break-word;
+  overflow: visible !important;
+}
+
+.haa9-text-main,
+.haa8-list-title,
+.haa9-list-title {
+  display: inline !important;
+  white-space: pre-wrap !important;
+  word-break: break-word !important;
+}
+
+.haa9-text-translate-btn,
+.haa8-list-translate-btn,
+.haa9-list-translate-btn {
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  border: 0 !important;
+  background: transparent !important;
+  box-shadow: none !important;
+  padding: 0 !important;
+  margin: 0 0 0 8px !important;
+  color: #6c757d !important;
+  font-size: 17px !important;
+  line-height: 1 !important;
+  cursor: pointer !important;
+  vertical-align: -2px !important;
+  white-space: nowrap !important;
+  visibility: visible !important;
+  opacity: 1 !important;
+  pointer-events: auto !important;
+}
+.haa9-text-translate-btn i,
+.haa8-list-translate-btn i,
+.haa9-list-translate-btn i { display: inline-block !important; font-size: 19px !important; line-height: 1 !important; }
+.haa9-text-translate-btn span,
+.haa8-list-translate-btn span,
+.haa9-list-translate-btn span { display: none !important; }
+.haa9-text-translate-btn.is-active,
+.haa9-text-translate-btn.is-loading,
+.haa8-list-translate-btn.is-active,
+.haa8-list-translate-btn.is-loading,
+.haa9-list-translate-btn.is-active,
+.haa9-list-translate-btn.is-loading { color: var(--bs-primary, #0d6efd) !important; }
+
+.haa9-text-translate-box,
+.haa8-list-translate-box,
+.haa9-list-translate-box {
+  display: none;
+  margin-top: 4px !important;
+  color: var(--haa9-muted) !important;
+  font-size: 13px !important;
+  line-height: 1.45 !important;
+  white-space: pre-wrap !important;
+  word-break: break-word !important;
+}
+.haa9-text-translate-box.is-show,
+.haa8-list-translate-box.is-show,
+.haa9-list-translate-box.is-show {
+  display: block !important;
+  visibility: visible !important;
+  opacity: 1 !important;
+}
+
+.haa9-skeleton-content {
+  padding: 8px 12px 10px !important;
+  min-height: 72px;
+}
+.haa9-skeleton-line {
+  display: block;
+  height: 12px;
+  margin: 7px 0;
+  border-radius: 999px;
+  background: linear-gradient(90deg, rgba(148,163,184,.18), rgba(148,163,184,.34), rgba(148,163,184,.18));
+  background-size: 200% 100%;
+  animation: haa9-skeleton 1.05s infinite linear;
+}
+.haa9-skeleton-line.w1 { width: 72%; }
+.haa9-skeleton-line.w2 { width: 48%; }
+.haa9-skeleton-media {
+  display: block;
+  width: 100%;
+  height: 38px;
+  margin-top: 10px;
+  border-radius: 14px;
+  background: linear-gradient(90deg, rgba(148,163,184,.12), rgba(148,163,184,.25), rgba(148,163,184,.12));
+  background-size: 200% 100%;
+  animation: haa9-skeleton 1.05s infinite linear;
+}
+@keyframes haa9-skeleton { to { background-position: -200% 0; } }
+
+.haa9-bleed {
+  position: relative;
+  left: 50%;
+  width: min(100vw, 720px);
+  max-width: min(100vw, 720px);
+  transform: translateX(-50%);
+}
+.haa9-image-list,
+.haa9-video-list { display: flex; flex-direction: column; gap: 6px !important; margin-top: 3px !important; }
+.haa9-image { display: block; width: 100%; margin: 0; padding: 0; border: 0; border-radius: 0; background: transparent; cursor: zoom-in; }
+.haa9-image img { display: block; width: 100%; height: 35vh; object-fit: cover; background: #000; }
+
+.haa9-audio-list { display: flex; flex-direction: column; gap: 5px !important; margin: 4px 0 6px !important; }
+.haa9-audio {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px !important;
+  width: min(58vw, 216px) !important;
+  min-width: 142px !important;
+  max-width: 100%;
+  padding: 7px 9px !important;
+  border: 1px solid rgba(255, 255, 255, .72);
+  border-radius: 17px !important;
+  background: linear-gradient(135deg, rgba(239, 246, 255, .82), rgba(255, 241, 246, .62) 52%, rgba(255, 255, 255, .78));
+  color: #334155;
+  box-shadow: 0 8px 22px rgba(37, 99, 235, .10), inset 0 1px 0 rgba(255,255,255,.82);
+  backdrop-filter: blur(14px) saturate(145%);
+  -webkit-backdrop-filter: blur(14px) saturate(145%);
+  cursor: pointer;
+}
+.haa9-audio-icon { display: inline-flex; align-items: center; justify-content: center; width: 26px !important; height: 26px !important; flex: 0 0 26px !important; border-radius: 999px; background: linear-gradient(135deg, rgba(37,99,235,.16), rgba(255,36,66,.13)); color: var(--haa9-blue); box-shadow: inset 0 1px 0 rgba(255,255,255,.72); }
+.haa9-audio-wave { display: inline-flex; align-items: center; gap: 2px; flex: 1 1 auto; height: 18px !important; min-width: 0; overflow: hidden; }
+.haa9-audio-wave i { width: 2px; flex: 0 0 2px; border-radius: 999px; background: rgba(37, 99, 235, .24); }
+.haa9-audio-wave i.is-active { background: linear-gradient(180deg, var(--haa9-blue), #60a5fa); }
+.haa9-audio-time { min-width: 32px !important; color: #475569; font-size: 10px !important; font-weight: 800; text-align: right; }
+
+.haa9-meta-row { display: flex; align-items: center; justify-content: space-between; gap: 8px !important; width: 100%; min-height: 24px !important; margin: 6px 0 2px !important; }
+.haa9-time { flex: 0 1 auto; color: var(--haa9-muted); font-size: 11px !important; font-weight: 700; line-height: 1.2 !important; white-space: nowrap; }
+.haa9-actions { display: inline-flex; align-items: center; justify-content: flex-end; gap: 18px !important; margin-left: auto; }
+.haa9-action { display: inline-flex; align-items: center; gap: 3px !important; padding: 0; border: 0; background: transparent; color: #68737d; font-size: 12px !important; font-weight: 700; line-height: 1.1 !important; text-decoration: none !important; cursor: pointer; }
+.haa9-action i { font-size: 20px !important; line-height: 1; }
+.haa9-action-like.is-active,
+.haa9-action-like.is-active i { color: var(--haa9-red); }
+.haa9-action-like.is-loading { opacity: .55; pointer-events: none; }
+.haa9-action-comment { display: inline-flex !important; align-items: center !important; visibility: visible !important; opacity: 1 !important; }
+
+.haa9-video-list > .haa9-video,
+.haa9-bleed:has(.haa9-video) {
+  --haa9-video-bleed-x: 18px;
+  display: block !important;
+  width: calc(100% + (var(--haa9-video-bleed-x) * 2)) !important;
+  max-width: none !important;
+  margin: 4px calc(-1 * var(--haa9-video-bleed-x)) 0 !important;
+}
+.haa9-video { display: block !important; width: 100% !important; max-width: none !important; background: #000; --haa9-crop-left: 22px; --haa9-crop-right: 72px; --haa9-crop-top: 8px; --haa9-crop-bottom: 10px; }
+.haa9-video-shell { position: relative !important; width: 100% !important; aspect-ratio: 9 / 11.6 !important; overflow: hidden !important; border-radius: 0 !important; background: #000 !important; box-shadow: none !important; }
+.haa9-video-frame,
+.haa9-video-cover,
+.haa9-video-cover img { position: absolute; width: 100%; height: 100%; }
+.haa9-video-frame { top: calc(-1 * var(--haa9-crop-top)) !important; left: calc(-1 * var(--haa9-crop-left)) !important; width: calc(100% + var(--haa9-crop-left) + var(--haa9-crop-right)) !important; height: calc(100% + var(--haa9-crop-top) + var(--haa9-crop-bottom)) !important; border: 0 !important; background: #000 !important; z-index: 1 !important; transform: translateZ(0); opacity: 0 !important; pointer-events: none !important; transition: opacity .14s ease; }
+.haa9-video.is-playing .haa9-video-frame { opacity: 1 !important; pointer-events: auto !important; }
+.haa9-video.is-unavailable .haa9-video-frame { opacity: 0 !important; pointer-events: none !important; }
+.haa9-video-cover { inset: 0 !important; z-index: 2 !important; background: #000 !important; transition: opacity .18s ease, filter .18s ease; opacity: 1 !important; }
+.haa9-video-cover.is-hidden { opacity: 0 !important; pointer-events: none !important; }
+.haa9-video-cover img { inset: 0 !important; object-fit: cover !important; transition: filter .18s ease; }
+.haa9-video.is-loading .haa9-video-cover img { filter: brightness(.72); }
+.haa9-video.is-unavailable .haa9-video-cover img { filter: brightness(.58); }
+.haa9-video-hotspot { position: absolute !important; z-index: 5 !important; inset: 48px 44px 70px 20px !important; border: 0 !important; margin: 0 !important; padding: 0 !important; background: transparent !important; cursor: pointer !important; -webkit-tap-highlight-color: transparent; }
+.haa9-video-play { position: absolute !important; left: 50% !important; top: 50% !important; z-index: 6 !important; transform: translate(-50%, -50%) !important; display: inline-flex !important; align-items: center !important; justify-content: center !important; width: 62px !important; height: 62px !important; border: 0 !important; border-radius: 999px !important; background: rgba(0,0,0,.34) !important; color: #fff !important; font-size: 24px !important; backdrop-filter: blur(6px); -webkit-backdrop-filter: blur(6px); cursor: pointer !important; }
+.haa9-video.is-playing .haa9-video-play { opacity: 0 !important; pointer-events: none !important; }
+.haa9-video.is-paused .haa9-video-play,
+.haa9-video.is-loading .haa9-video-play { opacity: 1 !important; pointer-events: auto !important; }
+.haa9-video.is-loading .haa9-video-play::after {
+  content: "";
+  position: absolute;
+  inset: -6px;
+  border-radius: 999px;
+  border: 2px solid rgba(255,255,255,.28);
+  border-top-color: rgba(255,255,255,.86);
+  animation: haa9-spin .8s linear infinite;
+}
+.haa9-video-sound { position: absolute !important; right: 10px !important; bottom: 10px !important; z-index: 9 !important; display: inline-flex !important; align-items: center !important; justify-content: center !important; width: 28px !important; height: 28px !important; border: 0 !important; padding: 0 !important; border-radius: 0 !important; background: transparent !important; box-shadow: none !important; color: #fff !important; cursor: pointer !important; filter: drop-shadow(0 1px 3px rgba(0,0,0,.65)); }
+.haa9-video-sound:not(.is-ready) { opacity: .55 !important; }
+.haa9-video-sound i { font-size: 18px !important; line-height: 1 !important; color: #fff !important; }
+.haa9-video-msg { position: absolute !important; left: 14px !important; right: 14px !important; bottom: 14px !important; z-index: 8 !important; display: none; color: #fff !important; font-size: 12px !important; font-weight: 700; line-height: 1.45 !important; text-align: center !important; text-shadow: 0 1px 4px rgba(0,0,0,.4) !important; }
+.haa9-video-msg.is-visible { display: block !important; }
+.haa9-video.is-unavailable .haa9-video-sound { opacity: 0 !important; pointer-events: none !important; }
+.haa9-video.is-unavailable .haa9-video-cover { opacity: 1 !important; }
+.haa9-video.is-unavailable .haa9-video-msg { display: block !important; left: 50% !important; right: auto !important; top: calc(50% + 52px) !important; bottom: auto !important; width: min(78%, 300px) !important; transform: translateX(-50%) !important; padding: 8px 10px !important; border-radius: 12px !important; background: rgba(0,0,0,.48) !important; backdrop-filter: blur(6px); -webkit-backdrop-filter: blur(6px); font-size: 13px !important; font-weight: 700 !important; }
+@keyframes haa9-spin { to { transform: rotate(360deg); } }
+
+#haa9-root input[type="file"] { display: none; }
+#haa9-fab { position: fixed; right: max(18px, env(safe-area-inset-right)); bottom: max(88px, calc(env(safe-area-inset-bottom) + 78px)); z-index: 1200; display: inline-flex; align-items: center; justify-content: center; width: 58px; height: 58px; border: 0; border-radius: 18px; background: var(--haa9-blue); color: #fff; font-size: 21px; box-shadow: 0 16px 34px rgba(37,99,235,.30); cursor: pointer; touch-action: none; user-select: none; }
+#haa9-overlay { position: fixed; inset: 0; z-index: 1201; background: rgba(15,23,42,.28); backdrop-filter: blur(12px) saturate(130%); -webkit-backdrop-filter: blur(12px) saturate(130%); opacity: 0; pointer-events: none; transition: opacity .18s ease; }
+#haa9-overlay.is-open { opacity: 1; pointer-events: auto; }
+#haa9-composer { position: fixed; left: 50%; bottom: max(74px, calc(env(safe-area-inset-bottom) + 62px)); z-index: 1202; width: min(92vw, 430px); max-height: min(86vh, 620px); padding: 10px 12px 12px; border: 1px solid rgba(255,255,255,.55); border-radius: 24px; background: rgba(255,255,255,.72); box-shadow: 0 26px 70px rgba(15,23,42,.25); backdrop-filter: blur(18px) saturate(145%); -webkit-backdrop-filter: blur(18px) saturate(145%); opacity: 0; pointer-events: none; transform: translate(-50%, 18px) scale(.98); transition: opacity .18s ease, transform .18s ease; }
+#haa9-composer.is-open { opacity: 1; pointer-events: auto; transform: translate(-50%, 0) scale(1); }
+.haa9-composer-head { display: flex; align-items: center; justify-content: center; height: 28px; margin-bottom: 4px; }
+.haa9-grip { width: 42px; height: 5px; border-radius: 999px; background: rgba(100,116,139,.32); }
+#haa9-close { position: absolute; top: 8px; right: 10px; display: inline-flex; align-items: center; justify-content: center; width: 32px; height: 32px; border: 0; border-radius: 999px; background: rgba(241,245,249,.86); color: #475569; }
+#haa9-record { display: none; align-items: center; gap: 10px; margin: 8px 0; padding: 9px 11px; border-radius: 16px; background: rgba(255,241,242,.82); color: #be123c; }
+#haa9-record.is-show { display: flex; }
+.haa9-record-dot { width: 10px; height: 10px; border-radius: 999px; background: #ef4444; animation: haa9-pulse 1s infinite; }
+.haa9-record-wave { display: inline-flex; align-items: center; gap: 2px; }
+.haa9-record-wave i { width: 3px; height: 14px; border-radius: 999px; background: currentColor; opacity: .74; animation: haa9-wave .55s infinite alternate ease-in-out; }
+#haa9-preview { display: flex; flex-wrap: wrap; gap: 10px; margin: 8px 0; }
+.haa9-preview-card { position: relative; display: none; overflow: hidden; border-radius: 16px; background: rgba(248,250,252,.82); }
+.haa9-preview-card.is-show { display: block; }
+#haa9-image-preview { width: 96px; height: 96px; }
+#haa9-image-preview img { width: 100%; height: 100%; object-fit: cover; }
+#haa9-voice-preview { width: min(68vw,270px); padding: 8px; }
+.haa9-preview-remove { position: absolute; top: 6px; right: 6px; z-index: 2; display: inline-flex; align-items: center; justify-content: center; width: 24px; height: 24px; border: 0; border-radius: 999px; background: rgba(15,23,42,.66); color: #fff; }
+#haa9-text { width: 100%; min-height: 118px; max-height: 260px; margin: 4px 0 10px; padding: 12px; border: 0; border-radius: 18px; outline: none; resize: none; background: rgba(248,250,252,.86); color: #111827; font-size: 15px; line-height: 1.6; }
+.haa9-compose-actions { display: flex; align-items: center; gap: 10px; }
+.haa9-image-picker { position: relative; }
+.haa9-tool { display: inline-flex; align-items: center; justify-content: center; width: 40px; height: 40px; border: 0; border-radius: 14px; background: rgba(239,246,255,.95); color: var(--haa9-blue); }
+.haa9-tool.is-recording { background: #fee2e2; color: #dc2626; }
+#haa9-image-menu { position: absolute; left: 0; bottom: 48px; z-index: 4; display: none; min-width: 142px; overflow: hidden; border: 1px solid rgba(255,255,255,.62); border-radius: 16px; background: rgba(255,255,255,.88); box-shadow: 0 14px 34px rgba(15,23,42,.18); backdrop-filter: blur(14px) saturate(140%); -webkit-backdrop-filter: blur(14px) saturate(140%); }
+#haa9-image-menu.is-open { display: block; }
+#haa9-image-menu button { display: block; width: 100%; padding: 10px 12px; border: 0; background: transparent; color: #111827; font-size: 14px; font-weight: 800; text-align: left; }
+#haa9-image-menu button + button { border-top: 1px solid rgba(15,23,42,.08); }
+#haa9-meta { flex: 1 1 auto; min-width: 0; overflow: hidden; color: #64748b; font-size: 12px; font-weight: 800; text-overflow: ellipsis; white-space: nowrap; }
+#haa9-send { height: 40px; padding: 0 18px; border: 0; border-radius: 999px; background: var(--haa9-blue); color: #fff; font-size: 14px; font-weight: 900; }
+#haa9-send:disabled { opacity: .62; }
+
+body.haa9-lightbox-open { overflow: hidden; }
+#haa9-lightbox { position: fixed; inset: 0; z-index: 2200; display: none; align-items: center; justify-content: center; padding: 18px; background: rgba(0,0,0,.88); backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px); cursor: zoom-out; touch-action: none; }
+#haa9-lightbox.is-show { display: flex; }
+#haa9-lightbox img { max-width: 96vw; max-height: 92vh; border-radius: 16px; object-fit: contain; cursor: zoom-out; pointer-events: auto; }
+
+@keyframes haa9-pulse { 0% { box-shadow: 0 0 0 0 rgba(239,68,68,.44); } 100% { box-shadow: 0 0 0 8px rgba(239,68,68,0); } }
+@keyframes haa9-wave { from { transform: scaleY(.72); } to { transform: scaleY(1.18); } }
+
+@media (max-width: 767px) {
+  .haa9-video-list > .haa9-video,
+  .haa9-bleed:has(.haa9-video) { --haa9-video-bleed-x: 14px; }
+  .haa9-video { --haa9-crop-left: 34px; --haa9-crop-right: 66px; --haa9-crop-top: 58px; --haa9-crop-bottom: 60px; }
+  .haa9-video-hotspot { inset: 46px 68px 66px 18px !important; }
+  .haa9-video-play { width: 56px !important; height: 56px !important; font-size: 22px !important; }
+  .haa9-video-sound { right: 9px !important; bottom: 9px !important; width: 26px !important; height: 26px !important; }
+  .haa9-video-sound i { font-size: 18px !important; }
+  #haa9-composer { width: calc(100vw - 22px); bottom: max(72px, calc(env(safe-area-inset-bottom) + 60px)); }
+  #haa9-fab { right: 22px; bottom: max(88px, calc(env(safe-area-inset-bottom) + 78px)); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: .001ms !important;
+    animation-iteration-count: 1 !important;
+    scroll-behavior: auto !important;
+    transition-duration: .001ms !important;
+  }
+}
+
+
+/* Launch polish: card media aligns to card edges instead of full viewport bleed. */
+body.haa9-mode .haa9-bleed {
+  left: auto !important;
+  width: calc(100% + 20px) !important;
+  max-width: none !important;
+  margin-left: -10px !important;
+  margin-right: -10px !important;
+  transform: none !important;
+}
+body.haa9-mode .haa9-image-list,
+body.haa9-mode .haa9-video-list {
+  gap: 8px !important;
+  margin-top: 6px !important;
+}
+body.haa9-mode .haa9-video-list > .haa9-video,
+body.haa9-mode .haa9-bleed.haa9-video-list {
+  --haa9-video-bleed-x: 0px !important;
+  width: 100% !important;
+  max-width: none !important;
+  margin: 6px 0 0 !important;
+}
+body.haa9-mode .haa9-video-shell,
+body.haa9-mode .haa9-image img {
+  border-radius: 14px !important;
+}
+body.haa9-mode .haa9-image img { height: min(46vh, 520px) !important; }
+body.haa9-mode .haa9-text { font-size: 14px !important; font-weight: 560; padding: 2px 0 5px !important; }
+body.haa9-mode .haa9-meta-row { margin-top: 8px !important; }
+body.haa9-mode .haa9-skeleton-content {
+  border-radius: 16px !important;
+  padding: 12px !important;
+  background: rgba(255,255,255,.72) !important;
+}
+
+
+/* =========================================================
+   Launch v4 polish
+   - tap play/hotspot to fullscreen; no fullscreen button
+   - TikTok cover cache is 3 days in JS
+   - flat pink voice player, no gradient
+   - rounded video corners and no drag shadow
+   ========================================================= */
+body.haa9-mode,
+body.haa9-user-topics-mode,
+body.haa9-tiktok-fs-open { background: #fff !important; }
+
+body.haa9-mode .haa9-video-fullscreen,
+#haa9-tiktok-fullscreen .haa9-video-fullscreen { display: none !important; }
+
+body.haa9-mode .haa9-video-shell,
+#haa9-tiktok-fullscreen .haa9-video-shell {
+  border-radius: 20px !important;
+  box-shadow: none !important;
+  overflow: hidden !important;
+  background: #000 !important;
+}
+
+body.haa9-mode .haa9-video-frame,
+#haa9-tiktok-fullscreen .haa9-video-frame {
+  backface-visibility: hidden !important;
+  -webkit-backface-visibility: hidden !important;
+}
+
+body.haa9-mode .haa9-video-cover,
+body.haa9-mode .haa9-video-cover img,
+#haa9-tiktok-fullscreen .haa9-video-cover,
+#haa9-tiktok-fullscreen .haa9-video-cover img { border-radius: inherit !important; }
+
+body.haa9-mode .haa9-video-list > .haa9-video,
+body.haa9-mode .haa9-bleed.haa9-video-list {
+  border-radius: 20px !important;
+  overflow: visible !important;
+}
+
+body.haa9-mode .haa9-video-play {
+  background: rgba(255,255,255,.18) !important;
+  box-shadow: none !important;
+}
+
+body.haa9-mode .haa9-video-sound {
+  right: 12px !important;
+  bottom: 12px !important;
+  background: #ff4d8d !important;
+  border: 0 !important;
+  box-shadow: none !important;
+}
+
+body.haa9-mode .haa9-audio {
+  border: 1px solid rgba(255, 77, 141, .24) !important;
+  background: rgba(255, 240, 246, .94) !important;
+  color: #be123c !important;
+  box-shadow: none !important;
+}
+
+body.haa9-mode .haa9-audio-icon {
+  background: #ffd6e5 !important;
+  color: #e11d48 !important;
+  box-shadow: none !important;
+}
+
+body.haa9-mode .haa9-audio-wave i { background: rgba(225, 29, 72, .20) !important; }
+body.haa9-mode .haa9-audio-wave i.is-active { background: #ff4d8d !important; }
+body.haa9-mode .haa9-audio-time { color: #be123c !important; }
+
+#haa9-tiktok-fullscreen {
+  position: fixed;
+  inset: 0;
+  z-index: 2600;
+  display: none;
+  background: rgba(0,0,0,.90) !important;
+  backdrop-filter: blur(8px) saturate(120%);
+  -webkit-backdrop-filter: blur(8px) saturate(120%);
+}
+#haa9-tiktok-fullscreen.is-open { display: block; }
+#haa9-tiktok-fullscreen .haa9-tiktok-fs-backdrop { position: absolute; inset: 0; }
+#haa9-tiktok-fullscreen .haa9-tiktok-fs-stage-wrap {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: max(14px, env(safe-area-inset-top)) 8px max(16px, env(safe-area-inset-bottom)) 8px;
+  touch-action: pan-y pan-x !important;
+}
+#haa9-tiktok-fullscreen .haa9-tiktok-fs-stage { width: min(100vw, 540px); max-width: 100%; }
+#haa9-tiktok-fullscreen .haa9-video {
+  width: 100% !important;
+  margin: 0 !important;
+  background: transparent !important;
+  --haa9-crop-left: 20px;
+  --haa9-crop-right: 56px;
+  --haa9-crop-top: 4px;
+  --haa9-crop-bottom: 12px;
+}
+#haa9-tiktok-fullscreen .haa9-video-shell {
+  aspect-ratio: 9 / 16 !important;
+  border-radius: 24px !important;
+  box-shadow: none !important;
+}
+#haa9-tiktok-fullscreen .haa9-video-play { width: 58px !important; height: 58px !important; }
+#haa9-tiktok-fullscreen .haa9-video-sound { bottom: 14px !important; }
+#haa9-tiktok-fullscreen .haa9-tiktok-fs-close {
+  position: absolute;
+  top: max(14px, env(safe-area-inset-top));
+  left: max(12px, env(safe-area-inset-left));
+  z-index: 3;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 40px;
+  padding: 0 14px;
+  border: 1px solid rgba(255,255,255,.18);
+  border-radius: 999px;
+  background: rgba(255,255,255,.14) !important;
+  color: #fff;
+  font-size: 14px;
+  font-weight: 800;
+  box-shadow: none !important;
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+}
+#haa9-tiktok-fullscreen .haa9-tiktok-fs-tip {
+  position: absolute;
+  left: 50%;
+  bottom: max(12px, env(safe-area-inset-bottom));
+  transform: translateX(-50%);
+  z-index: 3;
+  padding: 8px 12px;
+  border-radius: 999px;
+  background: rgba(255,255,255,.12);
+  color: rgba(255,255,255,.86);
+  font-size: 12px;
+  font-weight: 700;
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+}
+body.haa9-tiktok-fs-open { overflow: hidden !important; }
+
+@media (max-width: 767px) {
+  body.haa9-mode .haa9-video-shell { border-radius: 18px !important; }
+  #haa9-tiktok-fullscreen .haa9-video-shell { border-radius: 20px !important; }
+}
+
+/* =========================================================
+   Launch v5 fixes
+   - fullscreen close no history mutation/reload
+   - swipe close works by disabling iframe pointer events in fullscreen
+   - no close button / no swipe-tip
+   - transparent sound button
+   - time on username row right side
+   - larger red follow text before following
+   ========================================================= */
+.haa9-user-row {
+  flex-wrap: nowrap !important;
+  width: 100% !important;
+}
+
+.haa9-header-time {
+  margin-left: auto !important;
+  flex: 0 0 auto !important;
+  color: rgba(100, 116, 139, .78) !important;
+  font-size: 11px !important;
+  font-weight: 700 !important;
+  line-height: 1.2 !important;
+  white-space: nowrap !important;
+  transform: translateY(1px);
+}
+
+.haa9-follow {
+  font-size: 15px !important;
+  min-height: 23px !important;
+  font-weight: 900 !important;
+}
+
+.haa9-follow:not(.is-following) {
+  color: var(--haa9-red, #ff2442) !important;
+}
+
+.haa9-follow:not(.is-following)::before {
+  background: var(--haa9-red, #ff2442) !important;
+  width: 5px !important;
+  height: 5px !important;
+}
+
+.haa9-follow.is-following {
+  font-size: 14px !important;
+}
+
+body.haa9-mode .haa9-video-sound,
+#haa9-tiktok-fullscreen .haa9-video-sound {
+  background: transparent !important;
+  border: 0 !important;
+  box-shadow: none !important;
+  filter: none !important;
+  width: 34px !important;
+  height: 34px !important;
+  color: #fff !important;
+  text-shadow: 0 1px 2px rgba(0,0,0,.35) !important;
+}
+
+body.haa9-mode .haa9-video-sound i,
+#haa9-tiktok-fullscreen .haa9-video-sound i {
+  color: #fff !important;
+  font-size: 20px !important;
+  filter: drop-shadow(0 1px 2px rgba(0,0,0,.35));
+}
+
+#haa9-tiktok-fullscreen .haa9-tiktok-fs-close,
+#haa9-tiktok-fullscreen .haa9-tiktok-fs-tip {
+  display: none !important;
+}
+
+#haa9-tiktok-fullscreen {
+  background: rgba(0,0,0,.96) !important;
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+}
+
+#haa9-tiktok-fullscreen .haa9-tiktok-fs-stage-wrap {
+  z-index: 2 !important;
+  touch-action: none !important;
+}
+
+#haa9-tiktok-fullscreen .haa9-video-frame {
+  pointer-events: none !important;
+}
+
+#haa9-tiktok-fullscreen .haa9-video-shell {
+  border-radius: 24px !important;
+  box-shadow: none !important;
+  overflow: hidden !important;
+}
+
+#haa9-tiktok-fullscreen .haa9-video-cover,
+#haa9-tiktok-fullscreen .haa9-video-cover img,
+#haa9-tiktok-fullscreen .haa9-video-frame {
+  border-radius: inherit !important;
+}
+
+#haa9-tiktok-fullscreen .haa9-video-play {
+  background: rgba(255,255,255,.14) !important;
+  box-shadow: none !important;
+}
+
+body.haa9-mode .haa9-audio {
+  background: #fff0f6 !important;
+  border-color: rgba(255, 77, 141, .24) !important;
+  box-shadow: none !important;
+}
+
+body.haa9-mode .haa9-audio-icon {
+  background: #ffd6e5 !important;
+}
+
+body.haa9-mode .haa9-audio-wave i.is-active {
+  background: #ff4d8d !important;
+}
+
+
+/* =========================================================
+   Launch v6 tweaks
+   - publish time pinned to card top-right
+   - list card light gradient
+   - fullscreen fills viewport to reduce black bars
+   - left/right swipe close support in JS
+   ========================================================= */
+body.haa9-mode li[component="category/topic"][data-haa9-topic="1"] {
+  background: linear-gradient(180deg, rgba(255,255,255,.98) 0%, rgba(250,252,255,.96) 48%, rgba(245,248,255,.94) 100%) !important;
+  border-color: rgba(148, 163, 184, .16) !important;
+}
+
+body.haa9-mode li[component="category/topic"][data-haa9-topic="1"] .haa9-user {
+  position: static !important;
+}
+
+body.haa9-mode li[component="category/topic"][data-haa9-topic="1"] .haa9-user-row {
+  width: 100% !important;
+  padding-right: 72px !important;
+}
+
+body.haa9-mode li[component="category/topic"][data-haa9-topic="1"] .haa9-header-time {
+  position: absolute !important;
+  top: 12px !important;
+  right: 14px !important;
+  margin-left: 0 !important;
+  transform: none !important;
+  z-index: 5 !important;
+}
+
+#haa9-tiktok-fullscreen .haa9-tiktok-fs-stage-wrap {
+  padding: 0 !important;
+  align-items: stretch !important;
+  justify-content: stretch !important;
+}
+
+#haa9-tiktok-fullscreen .haa9-tiktok-fs-stage {
+  width: 100vw !important;
+  height: 100vh !important;
+  max-width: none !important;
+}
+
+#haa9-tiktok-fullscreen .haa9-video {
+  width: 100vw !important;
+  height: 100vh !important;
+  --haa9-crop-left: 34px !important;
+  --haa9-crop-right: 86px !important;
+  --haa9-crop-top: 18px !important;
+  --haa9-crop-bottom: 24px !important;
+}
+
+#haa9-tiktok-fullscreen .haa9-video-shell {
+  width: 100vw !important;
+  height: 100vh !important;
+  aspect-ratio: auto !important;
+  border-radius: 0 !important;
+  background: #000 !important;
+}
+
+#haa9-tiktok-fullscreen .haa9-video-frame,
+#haa9-tiktok-fullscreen .haa9-video-cover,
+#haa9-tiktok-fullscreen .haa9-video-cover img {
+  border-radius: 0 !important;
+}
+
+#haa9-tiktok-fullscreen .haa9-video-hotspot {
+  inset: 0 !important;
+}
+
+#haa9-tiktok-fullscreen .haa9-video-play {
+  width: 64px !important;
+  height: 64px !important;
+}
+
+
+/* =========================================================
+   Launch v7 interaction polish
+   - center tap toggles play/pause in fullscreen
+   - lower-screen tap exits fullscreen
+   - overlay captures left/right/down swipes more reliably
+   ========================================================= */
+#haa9-tiktok-fullscreen,
+#haa9-tiktok-fullscreen .haa9-tiktok-fs-stage-wrap,
+#haa9-tiktok-fullscreen .haa9-video,
+#haa9-tiktok-fullscreen .haa9-video-shell,
+#haa9-tiktok-fullscreen .haa9-video-hotspot {
+  touch-action: none !important;
+  -webkit-user-select: none !important;
+  user-select: none !important;
+}
+
+#haa9-tiktok-fullscreen .haa9-video-hotspot {
+  z-index: 7 !important;
+  cursor: pointer !important;
+}
+
+#haa9-tiktok-fullscreen .haa9-video-play,
+#haa9-tiktok-fullscreen .haa9-video-sound,
+#haa9-tiktok-fullscreen .haa9-video-msg {
+  z-index: 9 !important;
+}
+
+#haa9-tiktok-fullscreen .haa9-video.is-playing .haa9-video-play {
+  opacity: 0 !important;
+  pointer-events: none !important;
+}
+
+#haa9-tiktok-fullscreen .haa9-video.is-paused .haa9-video-play,
+#haa9-tiktok-fullscreen .haa9-video.is-loading .haa9-video-play,
+#haa9-tiktok-fullscreen .haa9-video.is-unavailable .haa9-video-play {
+  opacity: 1 !important;
+  pointer-events: auto !important;
+}
+
+
+/* =========================================================
+   Launch v8 final fix
+   - paused TikTok keeps the actual paused iframe frame visible after playback
+   - cold/preloaded videos still show the cached cover
+   ========================================================= */
+.haa9-video.is-frame-visible .haa9-video-frame {
+  opacity: 1 !important;
+}
+
+.haa9-video.is-frame-visible .haa9-video-cover {
+  opacity: 0 !important;
+  pointer-events: none !important;
+}
+
+.haa9-video.is-frame-visible.is-paused .haa9-video-frame,
+.haa9-video.is-frame-visible.is-loading .haa9-video-frame {
+  pointer-events: none !important;
+}
+
+#haa9-tiktok-fullscreen .haa9-video.is-frame-visible .haa9-video-frame {
+  opacity: 1 !important;
+  pointer-events: none !important;
+}
 
 
 
