@@ -1,0 +1,29 @@
+{
+  "title": "Peipe HAA9 အပ်ဒိတ်များ",
+  "client": {
+    "user": "အသုံးပြုသူ",
+    "follow": "စောင့်ကြည့်ရန်",
+    "following": "စောင့်ကြည့်နေသည်",
+    "loginFirst": "အရင် login ဝင်ပါ",
+    "publish": "တင်မည်",
+    "publishing": "တင်နေသည်...",
+    "publishOk": "တင်ပြီးပါပြီ",
+    "publishFail": "တင်၍မရပါ",
+    "enterSomething": "စာ၊ ပုံ သို့မဟုတ် အသံ ထည့်ပါ",
+    "imageOnly": "ပုံများသာ တင်နိုင်သည်",
+    "camera": "ကင်မရာ",
+    "gallery": "ဓာတ်ပုံပြခန်း",
+    "voiceMsg": "အသံမက်ဆေ့ခ်ျ",
+    "newPost": "Post အသစ်",
+    "placeholder": "စာရေးပါ၊ TikTok link ထည့်ပါ",
+    "translating": "ဘာသာပြန်နေသည်...",
+    "translateFail": "ဘာသာပြန်မအောင်မြင်ပါ",
+    "translateInput": "Input ကို ဘာသာပြန်",
+    "studyLockedTitle": "Study group အတွက်သာ",
+    "studyLockedText": "အကြောင်းအရာကြည့်ရန် Study group သို့ ဝင်ပါ",
+    "tiktokUnavailable": "Video မဖွင့်နိုင်ပါ။ ထပ်ကြိုးစားပါ။",
+    "essence": "အထူးတင်ဆက်",
+    "essenceOnly": "အထူးတင်ဆက်များသာ",
+    "cancelEssence": "အထူးတင်ဆက်များသာ ပိတ်မည်"
+  }
+}
