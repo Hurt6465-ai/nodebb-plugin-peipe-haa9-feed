@@ -1,0 +1,113 @@
+
+
+
+/* =========================================================
+   HAA9 v4.2 list/user-topic/media polish
+   - user profile topics use the same card/feed look
+   - native tag toolbar button hidden after 精华 shortcut is added
+   - image grid supports 1/2/3/4 layouts and gallery fullscreen
+   ========================================================= */
+body.haa9-user-topics-mode #haa9-root { display: none !important; }
+body.haa9-user-topics-mode [data-haa9-user-topic-ready="1"] {
+  border: 1px solid rgba(15, 23, 42, .07) !important;
+  border-bottom: 1px solid rgba(15, 23, 42, .07) !important;
+  border-radius: 18px !important;
+  background: rgba(255, 255, 255, .96) !important;
+  box-shadow: 0 8px 24px rgba(15, 23, 42, .055) !important;
+  padding: 10px 10px 8px !important;
+  margin: 10px 10px 12px !important;
+  position: relative !important;
+  overflow: hidden !important;
+}
+body.haa9-user-topics-mode [data-haa9-user-topic-ready="1"] > .d-flex,
+body.haa9-user-topics-mode [data-haa9-user-topic-ready="1"] > .card,
+body.haa9-user-topics-mode [data-haa9-user-topic-ready="1"] > .topic-row,
+body.haa9-user-topics-mode [data-haa9-user-topic-ready="1"] > .list-group-item {
+  gap: 8px !important;
+  padding-top: 0 !important;
+  padding-bottom: 0 !important;
+  border: 0 !important;
+  box-shadow: none !important;
+  background: transparent !important;
+}
+body.haa9-user-topics-mode [data-haa9-user-topic-ready="1"] .stats,
+body.haa9-user-topics-mode [data-haa9-user-topic-ready="1"] [component="topic/teaser"],
+body.haa9-user-topics-mode [data-haa9-user-topic-ready="1"] input[type="checkbox"],
+body.haa9-user-topics-mode [data-haa9-user-topic-ready="1"] [component="topic/select"],
+body.haa9-user-topics-mode [data-haa9-user-topic-ready="1"] .form-check,
+body.haa9-user-topics-mode [data-haa9-user-topic-ready="1"] .form-check-input { display: none !important; }
+.haa9-user-topic-head { display: flex; align-items: flex-start; gap: 9px; margin: 0 0 4px !important; min-width: 0; }
+.haa9-user-topic-avatar-host { position: relative; display: inline-flex; width: 42px; height: 42px; flex: 0 0 42px; border-radius: 14px; overflow: visible; text-decoration: none !important; }
+.haa9-user-topic-avatar-host img { width: 42px; height: 42px; border-radius: 14px; object-fit: cover; display: block; background: #e5e7eb; }
+.haa9-user-topic-avatar-fallback { width: 42px; height: 42px; border-radius: 14px; display: inline-flex; align-items: center; justify-content: center; color: #fff; background: linear-gradient(135deg, #2563eb, #ff2442); font-weight: 900; font-size: 18px; }
+.haa9-user-topic-head .haa9-user { margin: 0 !important; padding-top: 1px; flex: 1 1 auto; min-width: 0; }
+.haa9-user-topic-head .haa9-name { font-size: 15px !important; }
+.haa9-user-topic-head .haa9-flag { left: -3px; bottom: -3px; }
+.haa9-user-topic-head .haa9-status-dot { top: -2px; right: -2px; }
+.haa9-native-tag-hidden { display: none !important; }
+.haa9-essence-filter { display:inline-flex!important; align-items:center; justify-content:center; gap:6px; white-space:nowrap; border-radius:999px!important; font-weight:800!important; line-height:1!important; margin:0 4px!important; height:38px; min-height:38px; align-self:center; flex:0 0 auto; }
+.haa9-essence-filter.is-active { background: var(--haa9-red, #ff2442) !important; border-color: var(--haa9-red, #ff2442) !important; color: #fff !important; box-shadow: 0 8px 18px rgba(255,36,66,.24) !important; }
+.haa9-essence-filter.is-active i { color: #fff !important; }
+.haa9-essence-toolbar-fallback { display:flex; align-items:center; justify-content:flex-end; gap:8px; margin:10px 0; }
+@media (max-width:520px){.haa9-essence-filter.is-native-toolbar{width:38px;min-width:38px;padding-left:0!important;padding-right:0!important}.haa9-essence-filter.is-native-toolbar .haa9-essence-text{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap}}
+.haa9-image-list.haa9-image-grid { display: grid !important; gap: 4px !important; margin-top: 7px !important; overflow: hidden !important; border-radius: 16px !important; background: rgba(15, 23, 42, .06); }
+.haa9-image-grid .haa9-image { position: relative; display:block; width:100%; height:100%; margin:0; padding:0; border:0; border-radius:0; overflow:hidden; background:#000; cursor:zoom-in; }
+.haa9-image-grid .haa9-image img { display:block; width:100% !important; height:100% !important; object-fit:cover !important; border-radius:0 !important; background:#000; }
+.haa9-image-grid[data-count="1"] { grid-template-columns: 1fr; }
+.haa9-image-grid[data-count="1"] .haa9-image { aspect-ratio: 16 / 11; max-height: min(58vh, 520px); }
+.haa9-image-grid[data-count="2"] { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+.haa9-image-grid[data-count="2"] .haa9-image { aspect-ratio: 1 / 1; }
+.haa9-image-grid[data-count="3"] { grid-template-columns: 2fr 1fr; grid-template-rows: repeat(2, minmax(0, 1fr)); height: min(62vw, 380px); max-height: 380px; }
+.haa9-image-grid[data-count="3"] .haa9-image:first-child { grid-row: 1 / span 2; }
+.haa9-image-grid[data-count="4"] { grid-template-columns: repeat(2, minmax(0, 1fr)); grid-template-rows: repeat(2, minmax(0, 1fr)); height: min(72vw, 420px); max-height: 420px; }
+.haa9-image-preview-grid { width:min(78vw, 330px) !important; min-height:92px; padding:6px; }
+.haa9-preview-images { display:grid; grid-template-columns: repeat(4, 1fr); gap:5px; padding-right:28px; }
+.haa9-preview-images img { width:64px; height:64px; border-radius:12px; object-fit:cover; background:#e5e7eb; }
+#haa9-lightbox { padding: 0 !important; background: rgba(0,0,0,.94) !important; cursor: default !important; touch-action: none !important; }
+#haa9-lightbox img { max-width: 100vw !important; max-height: 100vh !important; width: auto; height: auto; border-radius: 0 !important; object-fit: contain; cursor: default !important; user-select: none; -webkit-user-drag: none; }
+.haa9-lightbox-counter { position: fixed; left: 50%; top: max(14px, env(safe-area-inset-top)); transform: translateX(-50%); z-index: 2203; padding: 5px 10px; border-radius: 999px; background: rgba(0,0,0,.38); color:#fff; font-size:12px; font-weight:800; }
+.haa9-lightbox-zone { position: fixed; top: 0; bottom: 18vh; z-index: 2202; border: 0; padding: 0; background: transparent; color: transparent; -webkit-tap-highlight-color: transparent; }
+.haa9-lightbox-zone-left { left: 0; width: 38vw; }
+.haa9-lightbox-zone-right { right: 0; width: 38vw; }
+.haa9-lightbox-bottom { position: fixed; left: 0; right: 0; bottom: 0; height: max(18vh, 96px); z-index: 2204; border: 0; padding: 0; background: linear-gradient(180deg, rgba(0,0,0,0), rgba(0,0,0,.48)); color: rgba(255,255,255,.82); font-size: 12px; font-weight: 800; display:flex; align-items:flex-end; justify-content:center; padding-bottom:max(18px, env(safe-area-inset-bottom)); -webkit-tap-highlight-color: transparent; }
+
+/* =========================================================
+   HAA9 v5 fixes
+   - user profile topics hide original/native row after hydration, preventing duplicate avatar
+   - composer translate button restored
+   - study group locked topic content styling
+   ========================================================= */
+body.haa9-user-topics-mode [data-haa9-user-topic-ready="1"][data-haa9-user-topics-hydrated="1"] > .d-flex,
+body.haa9-user-topics-mode [data-haa9-user-topic-ready="1"][data-haa9-user-topics-hydrated="1"] > .card,
+body.haa9-user-topics-mode [data-haa9-user-topic-ready="1"][data-haa9-user-topics-hydrated="1"] > .topic-row,
+body.haa9-user-topics-mode [data-haa9-user-topic-ready="1"][data-haa9-user-topics-hydrated="1"] > .list-group-item {
+  display: none !important;
+  visibility: hidden !important;
+  opacity: 0 !important;
+  height: 0 !important;
+  max-height: 0 !important;
+  overflow: hidden !important;
+  margin: 0 !important;
+  padding: 0 !important;
+  pointer-events: none !important;
+}
+#haa9-compose-translate-btn.is-loading { opacity: .55 !important; pointer-events: none !important; }
+#haa9-compose-translate-btn.is-loading i { animation: haa9-spin .8s linear infinite; }
+.haa9-locked-content { padding-top: 2px !important; }
+.haa9-locked-title { font-weight: 800 !important; margin-bottom: 6px !important; }
+.haa9-study-locked {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  width: fit-content;
+  max-width: 100%;
+  margin-top: 2px;
+  padding: 8px 11px;
+  border-radius: 999px;
+  background: rgba(255, 36, 66, .10);
+  color: var(--haa9-red, #ff2442);
+  font-size: 12px;
+  font-weight: 850;
+  line-height: 1.2;
+}
+.haa9-study-locked i { font-size: 12px; }
