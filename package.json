@@ -1,0 +1,38 @@
+{
+  "name": "nodebb-plugin-peipe-haa9-feed",
+  "version": "1.0.0",
+  "description": "帖子列表新样式",
+  "main": "library.js",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Hurt6465-ai/nodebb-plugin-peipe-haa9-feed.git"
+  },
+  "homepage": "https://github.com/Hurt6465-ai/nodebb-plugin-peipe-haa9-feed#readme",
+  "bugs": {
+    "url": "https://github.com/Hurt6465-ai/nodebb-plugin-peipe-haa9-feed/issues"
+  },
+  "keywords": [
+    "nodebb",
+    "nodebb-plugin",
+    "peipe",
+    "haa9",
+    "mobile-feed"
+  ],
+  "author": "Hurt6465-ai",
+  "license": "MIT",
+  "engines": {
+    "node": ">=18"
+  },
+  "nbbpm": {
+    "compatibility": "^4.0.0"
+  },
+  "files": [
+    "plugin.json",
+    "library.js",
+    "public",
+    "languages",
+    "data",
+    "README.md",
+    "LICENSE"
+  ]
+}
